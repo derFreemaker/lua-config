@@ -1,50 +1,48 @@
 local version = "0.1"
 print("lua-config version " .. version)
 
----@param path string
----@param ... string
----@return string, string[]
-local function sepperate_args(path, ...)
-    return path or "F:/Coding/Lua/lua-config", { ... }
-end
-local lua_config_dir, args = sepperate_args(...)
-lua_config_dir = lua_config_dir:gsub("\\", "/")
-if lua_config_dir:sub(lua_config_dir:len()) ~= "/" then
-    lua_config_dir = lua_config_dir .. "/"
-end
-lua_config_dir = lua_config_dir
-
----@return "windows" | "unix"
-local function get_os()
-    if package.config:sub(1, 1) == '\\' then
-        return "windows"
-    else
-        return "unix"
+local lua_config_dir, args
+do
+    ---@param path string
+    ---@param ... string
+    ---@return string, string[]
+    local function sepperate_args(path, ...)
+        return path or "F:/Coding/Lua/lua-config", { ... }
     end
-end
-
----@param path string
----@param package_path string
----@param package_cpath string
-local function setup_path(path, package_path, package_cpath)
-    local dynamic_lib_ext = ".so"
-    if get_os() == "windows" then
-        dynamic_lib_ext = ".dll"
+    lua_config_dir, args = sepperate_args(...)
+    lua_config_dir = lua_config_dir:gsub("\\", "/")
+    if lua_config_dir:sub(lua_config_dir:len()) ~= "/" then
+        lua_config_dir = lua_config_dir .. "/"
     end
+    lua_config_dir = lua_config_dir
+    ---@return "windows" | "unix"
+    local function get_os()
+        if package.config:sub(1, 1) == '\\' then
+            return "windows"
+        else
+            return "unix"
+        end
+    end
+    ---@param path string
+    ---@param package_path string
+    ---@param package_cpath string
+    local function setup_path(path, package_path, package_cpath)
+        local dynamic_lib_ext = ".so"
+        if get_os() == "windows" then
+            dynamic_lib_ext = ".dll"
+        end
 
-    package.path = package.path .. ";" .. path .. package_path .. "/?.lua"
-    package.cpath = package.cpath .. ";" .. path .. package_cpath .. "/?" .. dynamic_lib_ext
-end
-setup_path(lua_config_dir, "src/lua", "lib")
+        package.path = package.path .. ";" .. path .. package_path .. "/?.lua"
+        package.cpath = package.cpath .. ";" .. path .. package_cpath .. "/?" .. dynamic_lib_ext
+    end
+    setup_path(lua_config_dir, "src/lua", "lib")
 
----@type boolean, lfs
-local lfs_status, lfs = pcall(require, "lfs")
-if not lfs_status then
-    error("failed to load LuaFileSystem library:\n" .. lfs)
-end
-local current_dir = lfs.currentdir()
-if not current_dir then
-    error("was unable to get current dir.")
+    ---@type boolean, lfs
+    local lfs_status, lfs = pcall(require, "lfs")
+    if not lfs_status then
+        error("failed to load LuaFileSystem library:\n" .. lfs)
+    end
+    lfs = lfs
 end
 
 local argparse = require("lua-config.third-party.argparse")

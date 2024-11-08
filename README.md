@@ -16,7 +16,7 @@ This simply a extension which just brings some interaction to the filesystem as 
 - `config` global for configuration utils
 
 ## Builtin
-- For filesystem interactions [lua-filesystem](https://lunarmodules.github.io/luafilesystem) is comming with it and can be required with `require("lfs")`.
+- For filesystem interactions [lua-filesystem](https://lunarmodules.github.io/luafilesystem) is comming with it and can be access with the `lfs` global.
 
 ## Third-Party
 - [argparse](https://github.com/mpeterv/argparse)
