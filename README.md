@@ -8,7 +8,12 @@ This simply a extension which just brings some interaction to the filesystem as 
 
 ## Get Started
 1. clone repo
-2. Use lua-config files in bin directory
+2. use `lua-config/.bat` in bin directory
+3. create a file called `init.lua` in the parent directory of the repo
+
+## Usage
+- `env` global for environment variable managment
+- `config` global for configuration utils
 
 ## Builtin
 - For filesystem interactions [lua-filesystem](https://lunarmodules.github.io/luafilesystem) is comming with it and can be required with `require("lfs")`.

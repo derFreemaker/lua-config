@@ -1,3 +1,6 @@
+local version = "0.1"
+print("lua-config version " .. version)
+
 ---@param path string
 ---@param ... string
 ---@return string, string[]
@@ -34,15 +37,6 @@ local function setup_path(path, package_path, package_cpath)
 end
 setup_path(lua_config_dir, "src/lua", "lib")
 
-do
-    local version_file = io.open(lua_config_dir .. "VERSION", "r")
-    if not version_file then
-        error("unable to open version file!")
-    end
-    local version = version_file:read("l")
-    print("lua-config version " .. version)
-end
-
 ---@type boolean, lfs
 local lfs_status, lfs = pcall(require, "lfs")
 if not lfs_status then
@@ -56,10 +50,15 @@ end
 local argparse = require("lua-config.third-party.argparse")
 
 ---@class lua-config
+---@field _version string
+---
 ---@field args_parser argparse.Parser
 ---@field args table
 config = {
-    args_parser = argparse("lua-config", "configuration loader in lua")
+    _version = version,
+
+    args_parser = argparse("lua-config", "configuration loader in lua"),
+    args = args,
 }
 local parsed = false
 function config.parse_args()
@@ -67,8 +66,29 @@ function config.parse_args()
         return
     end
 
-    config.args = config.args_parser:parse(args)
+    config.args = config.args_parser:parse(config.args)
     parsed = true
 end
 
 require("lua-config.environment")
+
+do
+    local main_file_path = lua_config_dir .. "../init.lua"
+    if not lfs.exists(main_file_path) then
+        print("no " .. main_file_path .. " file found!")
+        os.exit(1)
+    end
+
+    local main_func, main_file_err_msg = loadfile(main_file_path)
+    if not main_func then
+        print("unable to load main file: " .. main_file_path .. "\n" .. main_file_err_msg)
+        os.exit(1)
+    end
+
+    local main_thread = coroutine.create(main_func)
+    local success, err_msg = coroutine.resume(main_thread)
+    if not success then
+        print("error in main file:\n" .. debug.traceback(main_thread, err_msg))
+        os.exit(1)
+    end
+end
