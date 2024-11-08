@@ -4,7 +4,7 @@ This is not regulary tested / used on linux there are linux needed files include
 
 # lua-config
 Configuration loader in lua to load configurations for multiple PCs or platforms configuration, while maintaing one config repo for example windows, linux and maybe portable.
-This simply a extension which just brings some interaction to the filesystem as well as environment variable handling.
+This is simply an lua which just brings some interaction to the filesystem as well as environment variable handling.
 
 ## Get Started
 1. clone repo

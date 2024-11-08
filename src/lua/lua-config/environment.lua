@@ -1,5 +1,5 @@
 ---@class lua-config.environment
----@field private cache table<string, string>
+---@field package cache table<string, string>
 ---
 ---@field os "windows" | "linux" | "macOS"
 ---@field is_windows boolean
