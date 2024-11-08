@@ -1,0 +1,1424 @@
+---@meta _
+
+--#region Parser
+
+---A class that parses arguments from a command-line interface.
+---@class argparse.Parser
+---@operator call(argparse.Parser.PropertiesTable): argparse.Parser
+local Parser = {}
+
+---@class argparse.Parser.PropertiesTable
+---@field name? string
+---@field description? string
+---@field epilog? string
+---@field usage? string -- The usage message.
+---@field help? string -- The help message.
+---@field require_command? boolean -- Does this parser require a command to be used?
+---@field handle_options? boolean -- Should options be parsed?
+---@field add_help? boolean|string|argparse.Option.PropertiesTable -- Set whether a help option exists or its properties.
+---@field command_target? string -- Where to put the invoked command name in the results table.
+---@field usage_max_width? integer -- The maximum width of the usage message.
+---@field usage_margin? integer -- The margin of the usage message when the text wraps to the next line.
+---@field help_max_width? integer -- The maximum width of the help message.
+---@field help_usage_margin? integer -- The margin of the help message's first column when the text wraps to the next line.
+---@field help_description_margin? integer -- The margin of the help message's second column when the text wraps to the next line.
+---@field help_vertical_space? integer -- How many lines are inserted between elements in the help message.
+
+---Returns a table with processed data from the command line or `argv` array.
+---
+---If the provided command line arguments are not recognized by the parser, it
+---will print an error message and call `os.exit(1)`.
+---
+---Since the returned table cannot be built statically, it must be casted from
+---an existing type.
+---@param argv? string[]
+---@return table
+function Parser:parse(argv) end
+
+---Similar to `Parser:parse`, except it returns boolean flag indicating success
+---of parsing and result or error message.
+---@param argv? string[]
+---@return boolean
+---@return table|string
+function Parser:pparse(argv) end
+
+---Manually raise an error to the command line.
+---@param message? string
+function Parser:error(message) end
+
+---Set the name.
+---@generic self
+---@param self self
+---@param name string
+---@return self
+function Parser:name(name) end
+
+---Set the description.
+---@generic self
+---@param self self
+---@param description string
+---@return self
+function Parser:description(description) end
+
+---Set the epilog.
+---@generic self
+---@param self self
+---@param epilog string
+---@return self
+function Parser:epilog(epilog) end
+
+---Store the name of command used in this field of the result table.
+---@generic self
+---@param self self
+---@param command_target string
+---@return self
+---
+---Script:
+---```lua
+---parser:command_target("command")
+---parser:command("install")
+---parser:command("remove")
+---```
+---
+---Console:
+---```sh
+---$ lua script.lua install
+---# -> {
+---#     install = true,
+---#     command = "install"
+---# }
+---```
+function Parser:command_target(command_target) end
+
+---Set whether it is required to use a command if they exist.
+---@generic self
+---@param self self
+---@param require_command boolean
+---@return self
+function Parser:require_command(require_command) end
+
+---Add a positional argument to the parser.
+---@param name string -- The argument's name, represented in the usage message as `<name>`.
+---@param description? string -- The argument's description, shown in the second column of the help message.
+---@param default? any -- The default value of this argument if not provided.
+---@param convert? argparse.Converter|argparse.Converter[]|{ [string]: any } -- Perform automatic validation and conversion on arguments.
+---@param args? integer|string -- Sets how many command line arguments the argument consumes. Default is 1.
+---@return argparse.Argument
+---
+---Script:
+---```lua
+---parser:argument "input"
+---````
+---
+---Console:
+---```sh
+---$ lua script.lua foo
+---# Returns:
+---# {
+---#     input = "foo"
+---# }
+---```
+---
+function Parser:argument(name, description, default, convert, args) end
+
+---Add an option to the parser.
+---@param name string -- This option's name or names, represented in the usage message as `[-n <name>]`
+---@param description? string -- This option's description, shown in the second column of the help message.
+---@param default? any -- The default value of this option if not provided.
+---@param convert? argparse.Converter|argparse.Converter[]|{ [string]: any } -- Perform automatic validation and conversion on arguments.
+---@param args? integer|string -- The number of arguments consumed.
+---@param count? integer|string -- How many times an option can be invoked.
+---@return argparse.Option
+---
+---The `args` property is interpreted as follows:
+---
+-- | Value                                      | Interpretation            |
+-- |:-------------------------------------------|:--------------------------|
+-- | Number `N`                                 | Exactly `N` arguments     |
+-- | String `A-B` where `A` and `B` are numbers | From `A` to `B` arguments |
+-- | String `N+`, where `N` is a number         | `N` or more arguments     |
+-- | String `?`                                 | An optional argument      |
+-- | String `*`                                 | Any number of arguments   |
+-- | String `+`                                 | At least one argument     |
+---
+---The `count` property is interpreted in the same way, except it describes how
+---many times an option can be used.
+---
+---Script:
+---```lua
+----- These lines are equivalent:
+---parser:option "-f" "--from"
+---parser:option "-f --from"
+---```
+---
+---Console:
+---```sh
+---$ lua script.lua --from there
+---$ lua script.lua --from=there
+---$ lua script.lua -f there
+---$ lua script.lua -fthere
+---# -> {
+---#     from = "there"
+---# }
+---```
+---
+---The default index used to store arguments passed to it is the first "long
+---alias" (an alias starting with two control characters, typically hyphens) or
+---just the first alias, without control characters. Hyphens in the default
+---index are replaced with underscores.
+---
+-- | Option's aliases     | Location of option's arguments |
+-- |:---------------------|:-------------------------------|
+-- | `-o`                 | `args.o`                       |
+-- | `-o` `--output`      | `args.output`                  |
+-- | `-s` `--from-server` | `args.from_server`             |
+---
+---As with arguments, the index can be explicitly set using `target` property.
+function Parser:option(name, description, default, convert, args, count) end
+
+---Add a flag to the parser, which is almost identical to options, except that
+---they don't take an argument by default.
+---@param name string -- This flag's name or names, represented in the usage message as `[-n <name>]`
+---@param description? string -- This flag's description, shown in the second column of the help message.
+---@param default? any -- The default value of this flag if not provided.
+---@param convert? argparse.Converter|argparse.Converter[]|{ [string]: any } -- Perform automatic validation and conversion on arguments.
+---@param args? integer|string -- The number of arguments consumed.
+---@param count? integer|string -- How many times an flag can be invoked.
+---@return argparse.Option
+---
+---The `args` property is interpreted as follows:
+---
+-- | Value                                      | Interpretation            |
+-- |:-------------------------------------------|:--------------------------|
+-- | Number `N`                                 | Exactly `N` arguments     |
+-- | String `A-B` where `A` and `B` are numbers | From `A` to `B` arguments |
+-- | String `N+`, where `N` is a number         | `N` or more arguments     |
+-- | String `?`                                 | An optional argument      |
+-- | String `*`                                 | Any number of arguments   |
+-- | String `+`                                 | At least one argument     |
+---
+---The `count` property is interpreted in the same way, except it describes how
+---many times an option can be used.
+---
+---Script:
+---```lua
+---parser:flag("-q --quiet")
+---```
+---
+---Console:
+---```sh
+---$ lua script.lua -q
+---# -> {
+---#     quiet = true
+---# }
+---```
+function Parser:flag(name, description, default, convert, args, count) end
+
+---Add a command, which is a subparser that is invoked when its name is passed
+---as an argument.
+---@param name string -- The name used to invoke this command.
+---@param description? string
+---@param epilog? string
+---@return argparse.Command
+---
+---Script:
+---```lua
+---parser:command "install i"
+---```
+---
+---Console:
+---```sh
+---$ lua script.lua install
+---# -> {
+---#     install = true
+---# }
+---```
+---
+---A typo will result in an appropriate error message.
+---
+---Console:
+---```sh
+---$ lua script.lua instal
+---# Usage: script.lua [-h] <command> ...
+---#
+---# Error: unknown command 'instal'
+---# Did you mean 'install'?
+---```
+function Parser:command(name, description, epilog) end
+
+---Mark a group of arguments and options as mutually exclusive.
+---@generic self
+---@param self self
+---@param ... argparse.Argument|argparse.Option
+---@return self
+---
+---Script:
+---```lua
+---parser:mutex(
+---    parser:argument "input"
+---        :args "?",
+---    parser:flag "--process-stdin"
+---)
+---
+---parser:mutex(
+---    parser:flag "-q --quiet",
+---    parser:flag "-v --verbose"
+---)
+---```
+---
+---If more than one element of a mutually exclusive group is used, an error is raised.
+---
+---Console:
+---```sh
+---$ lua script.lua -qv
+---# Usage: script.lua ([-q] | [-v]) [-h] ([<input>] | [--process-stdin])
+---#
+---# Error: option '-v' can not be used together with option '-q'
+---
+---$ lua script.lua file --process-stdin
+---# Usage: script.lua ([-q] | [-v]) [-h] ([<input>] | [--process-stdin])
+---#
+---# Error: option '--process-stdin' can not be used together with argument 'input'
+---```
+---
+function Parser:mutex(...) end
+
+---Set a callback that runs when this parser is invoked.
+---@generic self
+---@param self self
+---@param action fun(args: {[string]: any}, command_name: string)
+---@return self
+---
+---Actions for parsers and commands are simply callbacks invoked after parsing,
+---with result table and command name as the arguments. Actions for nested
+---commands are called first.
+---
+---Script:
+---```lua
+---local install = parser:command("install"):action(function(args, name)
+---    print("Running " .. name)
+---    -- Use args here
+---)
+---
+---parser:action(function(args)
+---    print("Callbacks are fun!")
+---end)
+---```
+---
+---Console:
+---```sh
+---$ lua script.lua install
+---# Running install
+---# Callbacks are fun!
+---```
+function Parser:action(action) end
+
+---Generate a help message.
+---@return string
+function Parser:get_help() end
+
+---Generate a usage message.
+---@return string
+function Parser:get_usage() end
+
+---Set the help message.
+---@generic self
+---@param self self
+---@param help string
+---@return self
+function Parser:help(help) end
+
+---Set the usage message.
+---@generic self
+---@param self self
+---@param usage string
+---@return self
+function Parser:usage(usage) end
+
+---Place a collection of commands, arguments, and options into a named group
+---with its own section in the help message.
+---@generic self
+---@param self self
+---@param name string
+---@param ... argparse.Command|argparse.Argument|argparse.Option
+---@return self
+---
+---Script:
+---```lua
+---parser:group("Configuring output format",
+---    parser:flag "-v --verbose",
+---    parser:flag "--use-colors",
+---    parser:option "--encoding"
+---)
+---
+---parser:group("Configuring processing",
+---    parser:option "--compression-level",
+---    parser:flag "--skip-broken-chunks"
+---)
+---
+---parser:flag "--version"
+---    :action(function() print("script.lua 1.0.0") os.exit(0) end)
+---```
+---
+---Console:
+---```sh
+---$ lua script.lua --help
+---# Usage: script.lua [-h] [-v] [--use-colors] [--encoding <encoding>]
+---#        [--compression-level <compression_level>]
+---#        [--skip-broken-chunks] [--version]
+---#
+---# Configuring output format:
+---#    -v, --verbose
+---#    --use-colors
+---#    --encoding <encoding>
+---#
+---# Configuring processing:
+---#    --compression-level <compression_level>
+---#    --skip-broken-chunks
+---#
+---# Other options:
+---#    -h, --help            Show this help message and exit.
+---#    --version
+---```
+function Parser:group(name, ...) end
+
+---Automatically wrap lines to fit the given number of columns when generating
+---a help message.
+---@generic self
+---@param self self
+---@param help_max_width integer
+---@return self
+---
+---Line wrapping preserves existing line endings and only splits overly long
+---input lines. When breaking a long line, it replicates indentation of the
+---line in the continuation lines. Additionally, if the first non-space token
+---in a line is `*`, `+`, or `-`, the line is considered a list item, and the
+---continuation lines are aligned with the first word after the list item
+---marker.
+function Parser:help_max_width(help_max_width) end
+
+---Set the maximum width of the usage string. Default is `70`.
+---@generic self
+---@param self self
+---@param usage_max_width integer
+---@return self
+---
+---Script:
+---```lua
+---parser:usage_max_width(50)
+---    :usage_margin(#"Usage: script.lua ")
+---
+---parser:option "--foo"
+---parser:option "--bar"
+---parser:option "--baz"
+---parser:option "--qux"
+---
+---print(parser:get_usage())
+---```
+---
+---Console:
+---```sh
+---$ lua script.lua
+---# Usage: script.lua [-h] [--foo <foo>] [--bar <bar>]
+---#                   [--baz <baz>] [--qux <qux>]
+---```
+function Parser:usage_max_width(usage_max_width) end
+
+---Set the margin width used when line wrapping long usage strings. Default is `7`.
+---@generic self
+---@param self self
+---@param usage_margin integer
+---@return self
+---
+---Script:
+---```lua
+---parser:usage_max_width(50)
+---    :usage_margin(#"Usage: script.lua ")
+---
+---parser:option "--foo"
+---parser:option "--bar"
+---parser:option "--baz"
+---parser:option "--qux"
+---
+---print(parser:get_usage())
+---```
+---
+---Console:
+---```sh
+---$ lua script.lua
+---# Usage: script.lua [-h] [--foo <foo>] [--bar <bar>]
+---#                   [--baz <baz>] [--qux <qux>]
+---```
+function Parser:usage_margin(usage_margin) end
+
+---Set the horizontal offset for the first column of the help message (`3` by default).
+---@generic self
+---@param self self
+---@param help_usage_margin integer
+---@return self
+---
+---The help message for a group of arguments, options, or commands is organized
+---into two columns, with the usage template on the left side and the
+---descriptions on the right side. The `help_usage_margin` property sets the
+---horizontal offset for the first column (`3` by default). The
+---`help_description_margin` property sets the horizontal offset for the second
+---column (`25` by default).
+---
+---Script:
+---```lua
+---parser:help_usage_margin(2)
+---    :help_description_margin(17)
+---    :help_vertical_space(1)
+---
+---parser:option("--foo", "Set foo.")
+---parser:option("--bar", "Set bar.")
+---parser:option("--baz", "Set baz.")
+---parser:option("--qux", "Set qux.")
+---```
+---
+---Console:
+---```sh
+---$ lua script.lua --help
+---# Usage: script.lua [-h] [--foo <foo>] [--bar <bar>] [--baz <baz>]
+---# [--qux <qux>]
+---#
+---# Options:
+---#
+---#   -h, --help     Show this help message and exit.
+---#
+---#   --foo <foo>    Set foo.
+---#
+---#   --bar <bar>    Set bar.
+---#
+---#   --baz <baz>    Set baz.
+---#
+---#   --qux <qux>    Set qux.
+---```
+function Parser:help_usage_margin(help_usage_margin) end
+
+---Set the horizontal offset for the second column of the help message (`25` by default).
+---@generic self
+---@param self self
+---@param help_description_margin integer
+---@return self
+---
+---The help message for a group of arguments, options, or commands is organized
+---into two columns, with the usage template on the left side and the
+---descriptions on the right side. The `help_usage_margin` property sets the
+---horizontal offset for the first column (`3` by default). The
+---`help_description_margin` property sets the horizontal offset for the second
+---column (`25` by default).
+---
+---Script:
+---```lua
+---parser:help_usage_margin(2)
+---    :help_description_margin(17)
+---    :help_vertical_space(1)
+---
+---parser:option("--foo", "Set foo.")
+---parser:option("--bar", "Set bar.")
+---parser:option("--baz", "Set baz.")
+---parser:option("--qux", "Set qux.")
+---```
+---
+---Console:
+---```sh
+---$ lua script.lua --help
+---# Usage: script.lua [-h] [--foo <foo>] [--bar <bar>] [--baz <baz>]
+---# [--qux <qux>]
+---#
+---# Options:
+---#
+---#   -h, --help     Show this help message and exit.
+---#
+---#   --foo <foo>    Set foo.
+---#
+---#   --bar <bar>    Set bar.
+---#
+---#   --baz <baz>    Set baz.
+---#
+---#   --qux <qux>    Set qux.
+---```
+function Parser:help_description_margin(help_description_margin) end
+
+---Set number of extra empty lines to put between descriptions for different
+---elements within a group (`0` by default).
+---@generic self
+---@param self self
+---@param help_vertical_space integer
+---@return self
+---
+---Script:
+---```lua
+---parser:help_usage_margin(2)
+---    :help_description_margin(17)
+---    :help_vertical_space(1)
+---
+---parser:option("--foo", "Set foo.")
+---parser:option("--bar", "Set bar.")
+---parser:option("--baz", "Set baz.")
+---parser:option("--qux", "Set qux.")
+---```
+---
+---Console:
+---```sh
+---$ lua script.lua --help
+---# Usage: script.lua [-h] [--foo <foo>] [--bar <bar>] [--baz <baz>]
+---# [--qux <qux>]
+---#
+---# Options:
+---#
+---#   -h, --help     Show this help message and exit.
+---#
+---#   --foo <foo>    Set foo.
+---#
+---#   --bar <bar>    Set bar.
+---#
+---#   --baz <baz>    Set baz.
+---#
+---#   --qux <qux>    Set qux.
+---```
+function Parser:help_vertical_space(help_vertical_space) end
+
+---Add a `--completion` option to this parser, which generates a shell
+---completion script.
+---@generic self
+---@param self self
+---@param config? string|table -- Used to configure the option
+---@return self
+function Parser:add_complete(config) end
+
+---Add a `completion` command to this parser, which generates a shell
+---completion script.
+---@generic self
+---@param self self
+---@param config? string|table -- Used to configure the command
+---@return self
+function Parser:add_complete_command(config) end
+
+---Configure the help option. Set to `false` to remove the help option or
+---`true` to set to default.
+---@generic self
+---@param self self
+---@param config string|table|boolean
+---@return self
+function Parser:add_help(config) end
+
+---Add a help command to this parser.
+---@generic self
+---@param self self
+---@param config? string|table -- Used to configure the command
+---@return self
+---
+---Script:
+---```lua
+---local parser = argparse()
+---    :add_help_command()
+---parser:command "install"
+---    :description "Install a rock."
+---```
+---
+---Console:
+---```sh
+---$ lua script.lua help
+---# Usage: script.lua [-h] <command> ...
+---#
+---# Options:
+---#    -h, --help            Show this help message and exit.
+---#
+---# Commands:
+---#    help                  Show help for commands.
+---#    install               Install a rock.
+---
+---$ lua script.lua help install
+---# Usage: script.lua install [-h]
+---#
+---# Install a rock.
+---#
+---# Options:
+---#    -h, --help            Show this help message and exit.
+---```
+function Parser:add_help_command(config) end
+
+---Set whether options are parsed.
+---@generic self
+---@param self self
+---@param handle_options boolean
+---@return self
+---
+---When set to `false`, all options will be
+---passed verbatim to the argument list, as if the input included
+---double-hyphens.
+---
+---Script:
+---```lua
+---parser:handle_options(false)
+---parser:argument "input"
+---    :args "*"
+---parser:option "-f" "--foo"
+---    :args "*"
+---```
+---
+---Console:
+---```sh
+---$ lua script.lua bar -f --foo bar
+---# -> {
+---#     input = {"bar", "-f", "--foo", "bar"}
+---# }
+---```
+function Parser:handle_options(handle_options) end
+
+--#endregion
+
+--#region Argument
+
+---A positional input created by `Parser:argument()`.
+---@class argparse.Argument
+---@operator call(argparse.Argument.PropertiesTable): argparse.Argument
+local Argument = {}
+
+---@class argparse.Argument.PropertiesTable
+---@field name? string -- Set the argument's name, represented in the usage message as `<name>`.
+---@field description? string -- Set the argument's description, shown in the second column of the help message.
+---@field default? any -- Set the default value of this argument if not provided.
+---@field convert? argparse.Converter|argparse.Converter[]|{ [string]: any } -- Perform automatic validation and conversion on arguments.
+---@field args? integer|string -- Set the number of arguments consumed.
+---@field target? string -- Set where this argument will appear in the result table.
+---@field defmode? string -- Regulate how argparse should use the default value of an element.
+---@field show_default? boolean -- Set whether this argument's default value is shown in the help message.
+---@field argname? string -- Set the placeholder name(s) for this argument in the usage message.
+---@field choices? string[] -- Restrict this argument to a set of choices.
+---@field action? argparse.BuiltInActions|fun(args: { [string]: any }, target: string, input: string|string[], overwrite: boolean)
+
+---Set the number arguments consumed.
+---@generic self
+---@param self self
+---@param args integer|string
+---@return self
+---
+---The `args` property is interpreted as follows:
+---
+-- | Value                                      | Interpretation            |
+-- |:-------------------------------------------|:--------------------------|
+-- | Number `N`                                 | Exactly `N` arguments     |
+-- | String `A-B` where `A` and `B` are numbers | From `A` to `B` arguments |
+-- | String `N+`, where `N` is a number         | `N` or more arguments     |
+-- | String `?`                                 | An optional argument      |
+-- | String `*`                                 | Any number of arguments   |
+-- | String `+`                                 | At least one argument     |
+---
+---If more than one argument is consumed, a table is used to store the data.
+---
+---Script:
+---```lua
+---parser:argument("pair", "A pair of arguments.")
+---    :args(2)
+---parser:argument("optional", "An optional argument.")
+---    :args "?"
+---```
+---
+---Console:
+---```sh
+---$ lua script.lua foo bar
+---# -> {
+---#     pair = {"foo", "bar"}
+---# }
+---
+---$ lua script.lua foo bar baz
+---# -> {
+---#     pair = {"foo", "bar"},
+---#     optional = "baz"
+---# }
+---```
+function Argument:args(args) end
+
+---Restrict this argument to a set of choices.
+---@generic self
+---@param self self
+---@param choices string[]
+---@return self
+---
+---Script:
+---```lua
+---parser:argument "direction"
+---    :choices {"north", "south", "east", "west"}
+---```
+---
+---Console:
+---```sh
+---$ lua script.lua foo
+---# Usage: script.lua [-h] {north,south,east,west}
+---#
+---# Error: argument 'direction' must be one of 'north', 'south', 'east', 'west'
+---```
+---
+function Argument:choices(choices) end
+
+---Set the default value of this argument if not provided.
+---@generic self
+---@param self self
+---@param default any
+---@return self
+---
+---For elements such as arguments and options, if `default` property is set to
+---a string, its value is stored in case the element was not used (if it's not
+---a string, it'll be used as `init` property instead).
+---
+---Script:
+---```lua
+---parser:option("-o --output", "Output file.", "a.out")
+----- Equivalent:
+---parser:option "-o" "--output"
+---    :description "Output file."
+---    :default "a.out"
+---```
+---
+---Console:
+---```sh
+---$ lua script.lua
+---# -> {
+---#     output = "a.out"
+---# }
+---```
+---
+---The existence of a default value is reflected in help message, unless
+---`show_default` property is set to `false`.
+---
+---Console:
+---```sh
+---$ lua script.lua --help
+---# Usage: script.lua [-h] [-o <output>]
+---#
+---# Options:
+---#    -h, --help            Show this help message and exit.
+---#    -o <output>, --output <output>
+---#                          Output file. (default: a.out)
+---```
+---
+---Note that invocation without required arguments is still an error.
+---
+---Console:
+---```sh
+---$ lua script.lua -o
+---# Usage: script.lua [-h] [-o <output>]
+---#
+---# Error: too few arguments
+---```
+function Argument:default(default) end
+
+---Set whether this argument's default value is shown in the help message.
+---@generic self
+---@param self self
+---@param show_default boolean
+---@return self
+---
+---For elements such as arguments and options, if `default` property is set to
+---a string, its value is stored in case the element was not used (if it's not
+---a string, it'll be used as `init` property instead).
+---
+---Script:
+---```lua
+---parser:option("-o --output", "Output file.", "a.out")
+----- Equivalent:
+---parser:option "-o" "--output"
+---    :description "Output file."
+---    :default "a.out"
+---```
+---
+---Console:
+---```sh
+---$ lua script.lua
+---# -> {
+---#     output = "a.out"
+---# }
+---```
+---
+---The existence of a default value is reflected in help message, unless
+---`show_default` property is set to `false`.
+---
+---Console:
+---```sh
+---$ lua script.lua --help
+---# Usage: script.lua [-h] [-o <output>]
+---#
+---# Options:
+---#    -h, --help            Show this help message and exit.
+---#    -o <output>, --output <output>
+---#                          Output file. (default: a.out)
+---```
+function Argument:show_default(show_default) end
+
+---Regulate how argparse should use the default value of an element.
+---@generic self
+---@param self self
+---@param defmode string
+---@return self
+---
+---By default, or if `defmode` contains `u` (for unused), the default value
+---will be automatically passed to the next element if it was not invoked at
+---all. It will be passed minimal required of times, so that if the element is
+---allowed to consume no arguments (e.g. using `:args "?"`), the default value
+---is ignored.
+---
+---If defmode contains a (for argument), the default value will be
+---automatically passed to the element if not enough arguments were passed, or
+---not enough invocations were made.
+---
+---Consider the difference:
+---
+---Script:
+---```lua
+---parser:option "-o"
+---    :default "a.out"
+---parser:option "-p"
+---    :default "password"
+---    :defmode "arg"
+---```
+---
+---Console:
+---```sh
+---$ lua script.lua -h
+---# Usage: script.lua [-h] [-o <o>] [-p [<p>]]
+---#
+---# Options:
+---#    -h, --help            Show this help message and exit.
+---#    -o <o>                default: a.out
+---#    -p [<p>]              default: password
+---
+---$ lua script.lua
+---# -> {
+---#     o = "a.out"
+---# }
+---
+---$ lua script.lua -p
+---# -> {
+---#     o = "a.out",
+---#     p = "password"
+---# }
+---
+---$ lua script.lua -o
+---# Usage: script.lua [-h] [-o <o>] [-p [<p>]]
+---#
+---# Error: too few arguments
+---```
+function Argument:defmode(defmode) end
+
+---@generic self
+---@param self self
+---@param action argparse.Argument.Action
+---@return self
+---@diagnostic disable-next-line: duplicate-set-field
+function Argument:action(action) end
+
+---Set a callback that processes invocations of this argument.
+---@generic self
+---@param self self
+---@param action argparse.BuiltInActions
+---@return self
+---
+---This function will be called after each invocation of the option or the
+---argument it is assigned to. Four arguments are passed: result table, target
+---index in that table, an argument or an array of arguments passed by user,
+---and overwrite flag used when an option is invoked too many times.
+---
+---Converters are applied before actions.
+---
+---Initial value to be stored at target index in the result table can be set
+---using `init` property, or also using `default` property if the value is not
+---a string.
+---
+---Script:
+---```lua
+---parser:option("--exceptions"):args("*"):action(function(args, _, exceptions)
+---    for _, exception in ipairs(exceptions) do
+---        table.insert(args.exceptions, exception)
+---    end
+---end):init({"foo", "bar"})
+---
+---parser:flag("--no-exceptions"):action(function(args)
+---    args.exceptions = {}
+---end)
+---```
+---
+---Console:
+---```sh
+---$ lua script.lua --exceptions x y --exceptions z t
+---# -> {
+---#     exceptions = {
+---#         "foo",
+---#         "bar",
+---#         "x",
+---#         "y",
+---#         "z",
+---#         "t"
+---#     }
+---# }
+---
+---$ lua script.lua --exceptions x y --no-exceptions
+---# -> {
+---#     exceptions = {}
+---# }
+---```
+---
+---Actions can also be used when a flag needs to print some message and exit
+---without parsing remaining arguments.
+---
+---Script:
+---```lua
+---parser:flag("-v --version"):action(function()
+---    print("script v1.0.0")
+---    os.exit(0)
+---end)
+---```
+---
+---Console:
+---```sh
+---$ lua script.lua -v
+---# script v1.0.0
+---```
+---
+---These actions can be referred to by their string names when setting action property:
+---
+-- | Name          | Description                                             |
+-- |:--------------|:--------------------------------------------------------|
+-- | `store`       | Stores argument or arguments at target index.           |
+-- | `store_true`  | Stores `true` at target index.                          |
+-- | `store_false` | Stores `false` at target index.                         |
+-- | `count`       | Increments number at target index.                      |
+-- | `append`      | Appends argument or arguments to table at target index. |
+-- | `concat`      | Appends arguments one by one to table at target index.  |
+---
+---Examples using `store_false` and `concat` actions:
+---
+---Script:
+---```lua
+---parser:flag("--candy")
+---parser:flag("--no-candy"):target("candy"):action("store_false")
+---parser:flag("--rain", "Enable rain", false)
+---parser:option("--exceptions"):args("*"):action("concat"):init({"foo", "bar"})
+---```
+---
+---Console:
+---```sh
+---$ lua script.lua
+---# -> {
+---#     rain = false
+---# }
+---
+---$ lua script.lua --candy
+---# -> {
+---#     candy = true,
+---#     rain = false
+---# }
+---
+---$ lua script.lua --no-candy --rain
+---# -> {
+---#     candy = false,
+---#     rain = true
+---# }
+---
+---$ lua script.lua --exceptions x y --exceptions z t
+---# -> {
+---#     exceptions = {
+---#         "foo",
+---#         "bar",
+---#         "x",
+---#         "y",
+---#         "z",
+---#         "t"
+---#     },
+---#     rain = false
+---# }
+---```
+---@diagnostic disable-next-line: duplicate-set-field
+function Argument:action(action) end
+
+---Perform automatic validation and conversion on arguments.
+---@generic self
+---@param self self
+---@param convert argparse.Converter|argparse.Converter[]| { [string]: any }
+---@return self
+---
+---If `convert` property of an element is a function, it will be applied to all
+---the arguments passed to it. The function should return `nil` and,
+---optionally, an error message if conversion failed. Standard `tonumber` and
+---`io.open` functions work exactly like that.
+---
+---Script:
+---```lua
+---parser:argument "input"
+---    :convert(io.open)
+---parser:option "-t --times"
+---    :convert(tonumber)
+---```
+---
+---Console:
+---```sh
+---$ lua script.lua foo.txt -t5
+---# -> {
+---#     input = file_object,
+---#     times = 5
+---# }
+---
+---$ lua script.lua nonexistent.txt
+---# Usage: script.lua [-h] [-t <times>] <input>
+---#
+---# Error: nonexistent.txt: No such file or directory
+---
+---$ lua script.lua foo.txt --times=many
+---# Usage: script.lua [-h] [-t <times>] <input>
+---#
+---# Error: malformed argument 'many'
+---```
+---
+---If `convert` property of an element is an array of functions, they will be
+---used as converters for corresponding arguments in case the element accepts
+---multiple arguments.
+---
+---Script:
+---```lua
+---parser:option "--line-style"
+---    :args(2)
+---    :convert {string.lower, tonumber}
+---```
+---
+---Console:
+---```sh
+---$ lua script.lua --line-style DASHED 1.5
+---# -> {
+---#     line_style = {"dashed", 1.5}
+---# }
+---```
+---
+---If `convert` property of an element is a table and doesn't have functions in
+---array part, arguments passed to it will be used as keys. If a key is
+---missing, an error is raised.
+---
+---Script:
+---```lua
+---parser:argument "choice"
+---    :convert {
+---        foo = "Something foo-related",
+---        bar = "Something bar-related"
+---    }
+---```
+---
+---Console:
+---```sh
+---$ lua script.lua bar
+---# -> {
+---#     choice = "Something bar-related"
+---# }
+---
+---$ lua script.lua baz
+---# Usage: script.lua [-h] <choice>
+---#
+---# Error: malformed argument 'baz'
+---```
+function Argument:convert(convert) end
+
+---Set the initial value stored at target index in the result table.
+---@generic self
+---@param self self
+---@param init any
+---@return self
+function Argument:init(init) end
+
+---Set whether this argument is hidden from help messages.
+---@generic self
+---@param self self
+---@param hidden boolean
+---@return self
+function Argument:hidden(hidden) end
+
+---Set the placeholder name(s) for the argument in the usage message.
+---@generic self
+---@param self self
+---@param argname string|string[]
+---@return self
+function Argument:argname(argname) end
+
+---Set the argument's name, represented in the usage message as `<name>`.
+---@generic self
+---@param self self
+---@param name string
+---@return self
+function Argument:name(name) end
+
+---Set the argument's description, shown in the second column of the help
+---message.
+---@generic self
+---@param self self
+---@param description string
+---@return self
+function Argument:description(description) end
+
+---Set where this argument will appear in the result table.
+---@generic self
+---@param self self
+---@param target string
+---@return self
+function Argument:target(target) end
+
+--#endregion
+
+--#region Option
+
+---A dash-delimited key-value input created by `Parser:option` or
+---`Parser:flag`.
+---@class argparse.Option : argparse.Argument
+---@operator call(argparse.Option.PropertiesTable): argparse.Option
+local Option = {}
+
+---@class argparse.Option.PropertiesTable : argparse.Argument.PropertiesTable
+---@field count? string|integer -- How many times an option can be invoked.
+---@field hidden_name? string -- Alias(es) hidden from help messages.
+---@field overwrite? boolean -- Is it possible to use this option too many times?
+
+---Set this option's name or names, represented in the usage message as `[-n <name>]`
+---@generic self
+---@param self self
+---@param name string
+---@return self
+function Option:name(name) end
+
+---Set this option's description, shown in the second column of the help
+---message.
+---@generic self
+---@param self self
+---@param description string
+---@return self
+function Option:description(description) end
+
+---Set the number of arguments consumed.
+---@generic self
+---@param self self
+---@param args integer|string
+---@return self
+---
+---The `args` property is interpreted as follows:
+---
+-- | Value                                      | Interpretation            |
+-- |:-------------------------------------------|:--------------------------|
+-- | Number `N`                                 | Exactly `N` arguments     |
+-- | String `A-B` where `A` and `B` are numbers | From `A` to `B` arguments |
+-- | String `N+`, where `N` is a number         | `N` or more arguments     |
+-- | String `?`                                 | An optional argument      |
+-- | String `*`                                 | Any number of arguments   |
+-- | String `+`                                 | At least one argument     |
+---
+---If any number other than one argument is consumed, a table is used to store the data.
+---
+---Script:
+---```lua
+---parser:option "--pair"
+---    :args(2)
+---parser:option "--optional"
+---    :args "?"
+---```
+---
+---Console:
+---```sh
+---$ lua script.lua --pair foo bar
+---# -> {
+---#     pair = {"foo", "bar"}
+---# }
+---
+---$ lua script.lua --pair foo bar --optional
+---# -> {
+---#     pair = {"foo", "bar"},
+---#     optional = {}
+---# }
+---
+---$ lua script.lua --optional=baz
+---# -> {
+---#     optional = {"baz"}
+---# }
+---```
+---
+---Note that the data passed to `optional` option is stored in an array. That
+---is necessary to distinguish whether the option was invoked without an
+---argument or it was not invoked at all.
+function Option:args(args) end
+
+---Restrict an option to a set of choices.
+---@generic self
+---@param self self
+---@param choices string[]
+---@return self
+---
+---Script:
+---```lua
+---parser:option "--format"
+---    :choices {"short", "medium", "full"}
+---```
+---
+---Console:
+---```sh
+---$ lua script.lua --format foo
+---# Usage: script.lua [-h] [--format {short,medium,full}]
+---#
+---# Error: argument for option '--format' must be one of 'short', 'medium', 'full'
+---```
+function Option:choices(choices) end
+
+---Set how many times an option can be invoked. It follows the same format as
+---the `args` property/argument.
+---@generic self
+---@param self self
+---@param count integer|string
+---@return self
+---
+---Script:
+---```lua
+---parser:option("-e --exclude")
+---    :count "*"
+---```
+---
+---Console:
+---```sh
+---$ lua script.lua -eFOO -eBAR
+---# -> {
+---#     exclude = {"FOO", "BAR"}
+---# }
+---```
+---
+---If an option can be used more than once and it can consume more than one
+---argument, the data is stored as an array of invocations, each being an array of arguments.
+---
+---As a special case, if an option can be used more than once and it consumes
+---no arguments (e.g. it's a flag), than the number of invocations is stored in
+---the associated field of the result table.
+---
+---Script:
+---```lua
+---parser:flag("-v --verbose", "Sets verbosity level.")
+---    :count "0-2"
+---    :target "verbosity"
+---```
+---
+---Console:
+---```sh
+---$ lua script.lua -vv
+---# -> {
+---#     verbosity = 2
+---# }
+---```
+function Option:count(count) end
+
+---Give this option an alias that is hidden from help messages.
+---@generic self
+---@param self self
+---@param hidden_name string
+---@return self
+function Option:hidden_name(hidden_name) end
+
+---Set whether it is possible to use this option too many times.
+---@generic self
+---@param self self
+---@param overwrite boolean
+---@return self
+function Option:overwrite(overwrite) end
+
+--#endregion
+
+--#region Command
+
+---A subparser that is invoked when its name is passed as an argument.
+---@class argparse.Command : argparse.Parser
+---@operator call(argparse.Command.PropertiesTable): argparse.Command
+local Command = {}
+
+---@class argparse.Command.PropertiesTable : argparse.Parser.PropertiesTable
+---@field name? string -- The name used to invoke this command.
+---@field summary? string -- The description for commands shown in the parent parser help message.
+---@field hidden? boolean -- Whether this command is hidden from help messages.
+---@field hidden_name? string -- Alias(es) hidden from help messages.
+---@field target? string -- Set the following index in the result table to true when this command is invoked.
+
+---Set the name used to invoke this command.
+---@generic self
+---@param self self
+---@param name string
+---@return self
+function Command:name(name) end
+
+---Set the description for commands shown in the parent parser help message.
+---@generic self
+---@param self self
+---@param summary string
+---@return self
+---
+---Script:
+---```lua
+---parser:command "install"
+---    :summary "Install a rock."
+---    :description "A long description for the install command."
+---```
+---
+---Console:
+---```sh
+---$ lua script.lua --help
+---# Usage: script.lua [-h] <command> ...
+---#
+---# Options:
+---#    -h, --help            Show this help message and exit.
+---#
+---# Commands:
+---#    install               Install a rock.
+---
+---$ lua script.lua install --help
+---# Usage: script.lua install [-h]
+---#
+---# A long description for the install command.
+---#
+---# Options:
+---#    -h, --help            Show this help message and exit.
+---```
+function Command:summary(summary) end
+
+---Set whether this command is hidden from help messages.
+---@generic self
+---@param self self
+---@param hidden boolean
+---@return self
+function Command:hidden(hidden) end
+
+---Give this command an alias that is hidden from help messages.
+---@generic self
+---@param self self
+---@param hidden_name string
+---@return self
+function Command:hidden_name(hidden_name) end
+
+---Set the following index in the result table to `true` when this command is
+---invoked.
+---@generic self
+---@param self self
+---@param target string
+---@return self
+function Command:target(target) end
+
+--#endregion
+
+---@alias argparse.Converter fun(value: string): (any, err: string?)
+
+---@alias argparse.Parser.Action fun(args: { [string]: any }, command_name: string)
+
+---@alias argparse.Argument.Action fun(args: { [string]: any }, target: string, input: string|string[], overwrite: boolean)
+
+---@alias argparse.BuiltInActions
+---| "store"
+---| "store_true"
+---| "store_false"
+---| "count"
+---| "append"
+---| "concat"
+
+---@class argparse
+---@field version string -- a string in `MAJOR.MINOR.PATCH` format specifying argparse version.
+---Create a new Parser instance.
+---@overload fun(name?: string, description?: string, epilog?: string): argparse.Parser
+local argparse = {}
+
+return argparse
