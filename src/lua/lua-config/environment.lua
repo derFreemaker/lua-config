@@ -1,7 +1,17 @@
----@type "windows" | "linux" | "macOS"
-local os_name
+---@class lua-config.environment
+---@field private cache table<string, string>
+---
+---@field os "windows" | "linux" | "macOS"
+---@field is_windows boolean
+---@field is_admin boolean
+---
+---@field hostname string
+env = {
+    cache = {},
+}
+
 if package.config:sub(1, 1) == '\\' then
-    os_name = "windows"
+    env.os = "windows"
 else
     -- Attempt to detect macOS
 
@@ -15,46 +25,30 @@ else
     f:close()
 
     if uname == "Darwin" then
-        os_name = "macOS"
+        env.os = "macOS"
     else
-        os_name = "linux"
+        env.os = "linux"
     end
 end
+env.is_windows = env.os == "windows"
 
-local is_admin = false
-if os_name == "windows" then
-    is_admin = os.execute("net session >nul 2>&1") == true
+if env.os == "windows" then
+    config.is_admin = os.execute("net session >nul 2>&1") == true
 else
-    is_admin = os.execute("sudo -n true > /dev/null 2>&1") == true
+    config.is_admin = os.execute("sudo -n true > /dev/null 2>&1") == true
 end
 
-local function get_hostname()
-    local handle
-    if os_name == "windows" then
-        return os.getenv("COMPUTERNAME")
-    else
-        handle = io.popen("/bin/hostname", "r")
-    end
+if env.is_windows then
+    env.hostname = os.getenv("COMPUTERNAME"):lower()
+else
+    local handle = io.popen("/bin/hostname", "r")
     if not handle then
         error("unable to get hostname!")
     end
 
-    local hostname = handle:read("*a") or ""
+    env.hostname = handle:read("l")
     handle:close()
-
-    return hostname:gsub("\n$", "")
 end
-
----@class lua-config.environment
----@field private cache table<string, string>
-env = {
-    cache = {},
-    os = os_name,
-    is_windows = os_name == "windows",
-    is_admin = is_admin,
-
-    hostname = get_hostname()
-}
 
 local org_getenv = os.getenv
 ---@param name string
