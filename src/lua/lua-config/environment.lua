@@ -53,7 +53,7 @@ env = {
     is_windows = os_name == "windows",
     is_admin = is_admin,
 
-    machine_name = get_hostname()
+    hostname = get_hostname()
 }
 
 local org_getenv = os.getenv
