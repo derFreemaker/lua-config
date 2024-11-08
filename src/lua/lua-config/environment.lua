@@ -28,6 +28,23 @@ else
     is_admin = os.execute("sudo -n true > /dev/null 2>&1") == true
 end
 
+local function get_hostname()
+    local handle
+    if os_name == "windows" then
+        return os.getenv("COMPUTERNAME")
+    else
+        handle = io.popen("/bin/hostname", "r")
+    end
+    if not handle then
+        error("unable to get hostname!")
+    end
+
+    local hostname = handle:read("*a") or ""
+    handle:close()
+
+    return hostname:gsub("\n$", "")
+end
+
 ---@class lua-config.environment
 ---@field private cache table<string, string>
 env = {
@@ -35,6 +52,8 @@ env = {
     os = os_name,
     is_windows = os_name == "windows",
     is_admin = is_admin,
+
+    machine_name = get_hostname()
 }
 
 local org_getenv = os.getenv
