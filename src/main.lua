@@ -79,22 +79,29 @@ config.path = require("lua-config.path")
 config.registry = require("lua-config.registry")
 
 do
+    local call_dir = lfs.currentdir()
+    if not call_dir then
+        error("unable to get current dir")
+    end
+    -- change to parent directory of lua config dir
+    lfs.chdir(lua_config_dir .. "..")
+
     local main_file_path = lua_config_dir .. "../init.lua"
     if not lfs.exists(main_file_path) then
-        print("no entry file found: " .. main_file_path)
-        os.exit(1)
+        error("no entry file found: " .. main_file_path)
     end
 
     local main_func, main_file_err_msg = loadfile(main_file_path)
     if not main_func then
-        print("unable to load main file: " .. main_file_path .. "\n" .. main_file_err_msg)
-        os.exit(1)
+        error("unable to load main file: " .. main_file_path .. "\n" .. main_file_err_msg)
     end
 
     local main_thread = coroutine.create(main_func)
     local success, err_msg = coroutine.resume(main_thread)
     if not success then
-        print("error in main file:\n" .. debug.traceback(main_thread, err_msg))
-        os.exit(1)
+        error("error in main file:\n" .. debug.traceback(main_thread, err_msg))
     end
+
+    -- change back to original working directory
+    lfs.chdir(call_dir)
 end

@@ -17,8 +17,7 @@ else
 
     local f = io.popen("uname")
     if not f then
-        print("unable to open io.popen!")
-        os.exit(1)
+        error("unable to open io.popen!")
     end
 
     local uname = f:read("*l")

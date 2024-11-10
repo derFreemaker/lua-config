@@ -8,12 +8,14 @@ This is simply an lua which just brings some interaction to the filesystem as we
 
 ## Get Started
 1. clone repo
-2. use `lua-config/.bat` in bin directory
-3. create a file called `init.lua` in the parent directory of the repo
+2. execute `lua-config` or `lua-config.bat` in `bin` directory
+3. create a file called `init.lua` in the parent directory of the repo (the parent directory is expected to be the config root)
 
 ## Usage
 - `env` global for environment variable managment
 - `config` global for configuration utils
+
+All args are configured by the user the arg parser setup is just done for you. There for there are no args for lua-config.
 
 ## Builtin
 - For filesystem interactions [lua-filesystem](https://lunarmodules.github.io/luafilesystem) is comming with it and can be access with the `lfs` global.
