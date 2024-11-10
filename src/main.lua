@@ -1,6 +1,3 @@
-local version = "0.1"
-print("lua-config version " .. version)
-
 ---@param path string
 ---@param ... string
 ---@return string, string[]
@@ -53,8 +50,6 @@ lfs = lfs
 local argparse = require("lua-config.third-party.argparse")
 
 ---@class lua-config
----@field _version string
----
 ---@field root_path string
 ---
 ---@field args_parser argparse.Parser
@@ -64,8 +59,6 @@ local argparse = require("lua-config.third-party.argparse")
 ---@field path lua-config.path
 ---@field registry lua-config.registry
 config = {
-    _version = version,
-
     root_path = parent_dir,
 
     args_parser = argparse("lua-config", "configuration loader in lua"),
