@@ -10,20 +10,28 @@ local env = {
     cache = {},
 }
 
+---@param command string
+---@return boolean
+---@return integer
+---@return string
+function env.execute(command)
+    local handle, err_msg = io.popen(command, "r")
+    if not handle then
+        error("unable to open process handle:\n" .. err_msg)
+    end
+
+    local result = handle:read("*a")
+    local success, exitcode, code = handle:close()
+    return success or false, code or 1, result
+end
+
 if package.config:sub(1, 1) == '\\' then
     env.os = "windows"
 else
     -- Attempt to detect macOS
+    local _, _, result = env.execute("uname")
 
-    local f = io.popen("uname")
-    if not f then
-        error("unable to open io.popen!")
-    end
-
-    local uname = f:read("*l")
-    f:close()
-
-    if uname == "Darwin" then
+    if result == "Darwin" then
         env.os = "macOS"
     else
         env.os = "linux"
@@ -32,9 +40,9 @@ end
 env.is_windows = env.os == "windows"
 
 if env.os == "windows" then
-    env.is_admin = os.execute("net session >nul 2>&1") == true
+    env.is_admin = env.execute("net session 2>&1")
 else
-    env.is_admin = os.execute("sudo -n true > /dev/null 2>&1") == true
+    env.is_admin = env.execute("sudo -n true 2>&1")
 end
 
 if env.is_windows then
@@ -103,19 +111,6 @@ function env.set(name, value, scope)
     else
         error("Invalid scope. Use 'process', 'user', or 'machine'.")
     end
-end
-
----@param command string
----@return string
-function env.execute(command)
-    local handle, err_msg = io.popen(command)
-    if not handle then
-        error("unable to open process handle:\n" .. err_msg)
-    end
-
-    local result = handle:read("*a")
-    handle:close()
-    return result
 end
 
 return env
