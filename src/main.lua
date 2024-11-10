@@ -52,6 +52,10 @@ local argparse = require("lua-config.third-party.argparse")
 ---
 ---@field args_parser argparse.Parser
 ---@field args table
+---
+---@field env lua-config.environment
+---@field path lua-config.path
+---@field registry lua-config.registry
 config = {
     _version = version,
 
@@ -68,12 +72,16 @@ function config.parse_args()
     parsed = true
 end
 
-require("lua-config.environment")
+config.env = require("lua-config.environment")
+os.getenv = config.env.get
+
+config.path = require("lua-config.path")
+config.registry = require("lua-config.registry")
 
 do
     local main_file_path = lua_config_dir .. "../init.lua"
     if not lfs.exists(main_file_path) then
-        print("no " .. main_file_path .. " file found!")
+        print("no entry file found: " .. main_file_path)
         os.exit(1)
     end
 

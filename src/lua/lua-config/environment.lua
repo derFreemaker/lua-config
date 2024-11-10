@@ -6,7 +6,7 @@
 ---@field is_admin boolean
 ---
 ---@field hostname string
-env = {
+local env = {
     cache = {},
 }
 
@@ -65,8 +65,6 @@ function env.get(name)
     return value
 end
 
-os.getenv = env.get
-
 ---@alias lua-config.environment.variable.scope
 ---|>"lua"
 ---| "user"
@@ -107,3 +105,19 @@ function env.set(name, value, scope)
         error("Invalid scope. Use 'process', 'user', or 'machine'.")
     end
 end
+
+---@param command string
+---@return string
+function env.execute(command)
+    local handle, err_msg = io.popen(command)
+    if not handle then
+        error("unable to open process handle:\n" .. err_msg)
+    end
+
+    local result = handle:read("*a")
+    handle:close()
+    return result
+end
+
+
+return env
