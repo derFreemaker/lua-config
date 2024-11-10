@@ -32,9 +32,9 @@ end
 env.is_windows = env.os == "windows"
 
 if env.os == "windows" then
-    config.is_admin = os.execute("net session >nul 2>&1") == true
+    env.is_admin = os.execute("net session >nul 2>&1") == true
 else
-    config.is_admin = os.execute("sudo -n true > /dev/null 2>&1") == true
+    env.is_admin = os.execute("sudo -n true > /dev/null 2>&1") == true
 end
 
 if env.is_windows then
@@ -117,6 +117,5 @@ function env.execute(command)
     handle:close()
     return result
 end
-
 
 return env
