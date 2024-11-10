@@ -12,7 +12,12 @@ lua_config_dir = lua_config_dir:gsub("\\", "/")
 if lua_config_dir:sub(lua_config_dir:len()) ~= "/" then
     lua_config_dir = lua_config_dir .. "/"
 end
-lua_config_dir = lua_config_dir
+local parent_dir
+do
+    local pos = lua_config_dir:reverse():find("/", 2, true)
+    parent_dir = lua_config_dir:sub(0, lua_config_dir:len() - pos + 1)
+end
+
 ---@return "windows" | "unix"
 local function get_os()
     if package.config:sub(1, 1) == '\\' then
@@ -50,6 +55,8 @@ local argparse = require("lua-config.third-party.argparse")
 ---@class lua-config
 ---@field _version string
 ---
+---@field root_path string
+---
 ---@field args_parser argparse.Parser
 ---@field args table
 ---
@@ -58,6 +65,8 @@ local argparse = require("lua-config.third-party.argparse")
 ---@field registry lua-config.registry
 config = {
     _version = version,
+
+    root_path = parent_dir,
 
     args_parser = argparse("lua-config", "configuration loader in lua"),
     args = args,
@@ -84,10 +93,10 @@ do
         error("unable to get current dir")
     end
     -- change to parent directory of lua config dir
-    lfs.chdir(lua_config_dir .. "..")
-    setup_path(lua_config_dir .. "..")
+    lfs.chdir(config.root_path)
+    setup_path(config.root_path)
 
-    local main_file_path = lua_config_dir .. "../init.lua"
+    local main_file_path = config.root_path .. "init.lua"
     if not lfs.exists(main_file_path) then
         error("no entry file found: " .. main_file_path)
     end
