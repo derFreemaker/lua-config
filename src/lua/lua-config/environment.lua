@@ -49,7 +49,7 @@ function env.check_admin()
         return
     end
 
-    print("adming privileges needed")
+    print("admin privileges needed")
     os.exit(1)
 end
 
