@@ -21,7 +21,7 @@ function env.execute(command)
     end
 
     local result = handle:read("*a")
-    local success, exitcode, code = handle:close()
+    local success, _, code = handle:close()
     return success or false, code or 1, result
 end
 
@@ -43,6 +43,14 @@ if env.os == "windows" then
     env.is_admin = env.execute("net session 2>&1")
 else
     env.is_admin = env.execute("sudo -n true 2>&1")
+end
+function env.check_admin()
+    if env.is_admin then
+        return
+    end
+
+    print("adming privileges needed")
+    os.exit(1)
 end
 
 if env.is_windows then
