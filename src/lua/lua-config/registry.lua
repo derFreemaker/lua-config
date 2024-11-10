@@ -5,7 +5,7 @@ local registry = {}
 ---@param value_name string
 function registry.read(path, value_name)
     local command = string.format('reg query "%s" /v "%s"', path, value_name)
-    local output = config.env.execute(command)
+    local _, _, output = config.env.execute(command)
 
     -- Parse the output to extract the registry value
     return output:match(value_name .. "%s+REG_%a+%s+(.*)")
@@ -20,7 +20,7 @@ function registry.write(path, value_name, value_type, value_data)
         'reg add "%s" /v "%s" /t %s /d "%s" /f',
         path, value_name, value_type, tostring(value_data)
     )
-    local output = config.env.execute(command)
+    local _, _, output = config.env.execute(command)
 
     if output:find("success", 1, true) then
         return true
@@ -33,7 +33,7 @@ end
 ---@param value_name string
 function registry.delete(path, value_name)
     local command = string.format('reg delete "%s" /v "%s" /f', path, value_name)
-    local output = config.env.execute(command)
+    local _, _, output = config.env.execute(command)
 
     if output:find("success", 1, true) then
         return true

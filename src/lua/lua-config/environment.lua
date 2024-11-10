@@ -113,4 +113,21 @@ function env.set(name, value, scope)
     end
 end
 
+function env.refresh()
+    for key in pairs(env.cache) do
+        env.cache[key] = org_getenv(key)
+    end
+end
+
+--- This assumes powershell can be reached with 'pwsh'
+---@param command string
+---@param pwsh_path string | nil
+---@return boolean
+---@return integer
+---@return string
+function env.execute_in_pwsh(command, pwsh_path)
+    pwsh_path = pwsh_path or "pwsh"
+    return env.execute("pwsh -Command {" .. command "}")
+end
+
 return env
