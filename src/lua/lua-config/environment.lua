@@ -127,7 +127,7 @@ end
 ---@return string
 function env.execute_in_pwsh(command, pwsh_path)
     pwsh_path = pwsh_path or "pwsh"
-    return env.execute("pwsh -Command {" .. command "}")
+    return env.execute("pwsh -Command {" .. command .. "}")
 end
 
 return env
