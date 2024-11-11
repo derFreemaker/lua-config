@@ -97,6 +97,7 @@ function env.set(name, value, scope)
             env.execute('setx "' .. name .. '" "' .. value .. '"')
         else
             local user_profile = os.getenv("HOME") .. "/.bashrc"
+            env.execute("sed -i '/export " .. name .. "=/d' " .. user_profile)
             env.execute("echo 'export " .. name .. "=\"" .. value .. "\"' >> " .. user_profile)
             env.execute("source " .. user_profile)
         end
@@ -108,6 +109,7 @@ function env.set(name, value, scope)
         if env.is_windows then
             env.execute('setx "' .. name .. '" "' .. value .. '"/M')
         else
+            env.execute("sudo sed -i '/" .. name .. "=/d' /etc/environment")
             env.execute("echo '" .. name .. "=\"" .. value .. "\"' | sudo tee -a /etc/environment")
         end
     end
