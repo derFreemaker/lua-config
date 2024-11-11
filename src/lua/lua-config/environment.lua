@@ -91,33 +91,52 @@ end
 function env.set(name, value, scope)
     scope = scope or "lua"
 
-    if scope == "lua" then
-        env.cache[name] = value
-    elseif scope == "user" then
-        env.cache[name] = value
-
+    env.cache[name] = value
+    if scope == "user" then
         if env.is_windows then
-            os.execute('setx "' .. name .. '" "' .. value .. '"')
+            env.execute('setx "' .. name .. '" "' .. value .. '"')
         else
             local user_profile = os.getenv("HOME") .. "/.bashrc"
-            os.execute("echo 'export " .. name .. "=\"" .. value .. "\"' >> " .. user_profile)
-            os.execute("source " .. user_profile)
+            env.execute("echo 'export " .. name .. "=\"" .. value .. "\"' >> " .. user_profile)
+            env.execute("source " .. user_profile)
         end
     elseif scope == "machine" then
-        env.cache[name] = value
-
         if not env.is_admin then
             error("unable to set machine environment variables without admin privileges")
         end
 
         if env.is_windows then
-            os.execute('setx "' .. name .. '" "' .. value .. '"/M')
+            env.execute('setx "' .. name .. '" "' .. value .. '"/M')
         else
-            os.execute("echo '" .. name .. "=\"" .. value .. "\"' | sudo tee -a /etc/environment")
-            os.execute("source /etc/environment")
+            env.execute("echo '" .. name .. "=\"" .. value .. "\"' | sudo tee -a /etc/environment")
         end
-    else
-        error("Invalid scope. Use 'process', 'user', or 'machine'.")
+    end
+end
+
+---@param name string
+---@param scope lua-config.environment.variable.scope?
+function env.remove(name, scope)
+    scope = scope or "lua"
+
+    env.cache[name] = nil
+    if scope == "user" then
+        if env.is_windows then
+            env.execute('setx "' .. name .. '" ""')
+        else
+            local user_profile = os.getenv("HOME") .. "/.bashrc"
+            env.execute("sed -i '/export " .. name .. "=/d' " .. user_profile)
+            env.execute("source " .. user_profile)
+        end
+    elseif scope == "machine" then
+        if not env.is_admin then
+            error("unable to remove machine environment variables without admin privileges")
+        end
+
+        if env.is_windows then
+            os.execute('setx "' .. name .. '" "" /M') -- Unset machine environment variable
+        else
+            env.execute("sudo sed -i '/" .. name .. "=/d' /etc/environment")
+        end
     end
 end
 
