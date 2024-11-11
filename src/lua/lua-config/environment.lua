@@ -22,7 +22,7 @@ function env.execute(command)
 
     local result = handle:read("*a")
     local success, _, code = handle:close()
-    return success or false, code or 1, result
+    return (success == true) or false, code or 1, result
 end
 
 if package.config:sub(1, 1) == '\\' then

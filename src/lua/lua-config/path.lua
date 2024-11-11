@@ -1,37 +1,55 @@
 local lfs = lfs
 
 ---@class lua-config.path
-local path = {}
+local _path = {}
 
 --- Resolves path and addes hostname if directory is found 
----@param path_str string
+---@param path string
 ---@return string
-function path.add_hostname_if_found(path_str)
-    if path_str:sub(path_str:len(), path_str:len()) ~= "/" then
-        path_str = path_str .. "/"
+function _path.add_hostname_if_found(path)
+    if path:sub(path:len(), path:len()) ~= "/" then
+        path = path .. "/"
     end
 
-    local hostname_path = path_str .. config.env.hostname
+    local hostname_path = path .. config.env.hostname
     if lfs.exists(hostname_path) and lfs.attributes(hostname_path).mode == "directory" then
         return hostname_path
     end
 
-    return path_str
+    return path
 end
 
+--- Needs admin privilegies on windows use `create_junction` instead.
 ---@param path string
 ---@param target string
 ---@return boolean success
-function path.create_symlink(path, target)
+function _path.create_symlink(path, target)
     local command
     if config.env.is_windows then
+        if not config.env.is_admin then
+            return false
+        end
+
         command = string.format('mklink /D "%s" "%s"', path, target)
     else
         command = string.format('ln -s "%s" "%s"', path, target)
     end
 
-    local success = os.execute(command)
+    local success = config.env.execute(command)
     return success == true
 end
 
-return path
+--- Will fallback to `create_symlink` on none windows machines.
+---@param path string
+---@param target string
+---@return boolean success
+function _path.create_junction(path, target)
+    if config.env.is_windows then
+        local success = config.env.execute(string.format('mklink /J "%s" "%s"', path, target))
+        return success
+    else
+        return _path.create_symlink(path, target)
+    end
+end
+
+return _path
