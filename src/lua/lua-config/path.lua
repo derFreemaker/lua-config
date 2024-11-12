@@ -2,7 +2,7 @@ local lfs = lfs
 
 ---@class lua-config.path
 ---@field home string
-local path = {
+local _path = {
     home = (config.env.is_windows and (config.env.get("USERPROFILE"):gsub("\\", "/") .. "/")) or ("~/")
 }
 
