@@ -1,7 +1,10 @@
 local lfs = lfs
 
 ---@class lua-config.path
-local _path = {}
+---@field home string
+local path = {
+    home = (config.env.is_windows and (config.env.get("USERPROFILE"):gsub("\\", "/") .. "/")) or ("~/")
+}
 
 --- Resolves path and addes hostname if directory is found 
 ---@param path string
