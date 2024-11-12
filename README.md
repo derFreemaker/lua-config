@@ -12,10 +12,12 @@ This is simply an lua which just brings some interaction to the filesystem as we
 3. create a file called `init.lua` in the parent directory of the repo (the parent directory is expected to be the config root)
 
 ## Usage
-- `env` global for environment variable managment
+- `config.env` for environment variable managment
+- `config.path` for some path things
 - `config` global for configuration utils
 
 All args are configured by the user the arg parser setup is just done for you. There for there are no args for lua-config.
+Use `config.parse_args()` to parse the args after configuring the `config.args_parser`.
 
 ## Builtin
 - For filesystem interactions [lua-filesystem](https://lunarmodules.github.io/luafilesystem) is comming with it and can be access with the `lfs` global.
