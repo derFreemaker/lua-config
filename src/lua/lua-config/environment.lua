@@ -10,12 +10,18 @@ local env = {
     cache = {},
 }
 
+-- Will use 'powershell' on windows and '/bin/bash' on any other machine.
 ---@param command string
 ---@return boolean
 ---@return integer
 ---@return string
 function env.execute(command)
-    local handle, err_msg = io.popen(command, "r")
+    local handle, err_msg
+    if env.is_windows then
+        handle, err_msg = io.popen("powershell -Command '".. command .. "'")
+    else
+        handle, err_msg = io.popen("/bin/bash -c '" .. command .. "'")
+    end
     if not handle then
         error("unable to open process handle:\n" .. err_msg)
     end
@@ -67,8 +73,9 @@ end
 
 local org_getenv = os.getenv
 ---@param name string
+---@param scope lua-config.environment.variable.scope | nil
 ---@return string?
-function env.get(name)
+function env.get(name, scope)
     ---@type string?
     local value = env.cache[name]
     if value then
@@ -87,7 +94,7 @@ end
 
 ---@param name string
 ---@param value string
----@param scope lua-config.environment.variable.scope?
+---@param scope lua-config.environment.variable.scope | nil
 function env.set(name, value, scope)
     scope = scope or "lua"
 
@@ -116,7 +123,7 @@ function env.set(name, value, scope)
 end
 
 ---@param name string
----@param scope lua-config.environment.variable.scope?
+---@param scope lua-config.environment.variable.scope | nil
 function env.remove(name, scope)
     scope = scope or "lua"
 
@@ -146,19 +153,6 @@ function env.refresh()
     for key in pairs(env.cache) do
         env.cache[key] = org_getenv(key)
     end
-end
-
---- This assumes powershell can be reached with 'pwsh'
----@param command string
----@param pwsh_path string | nil
----@return boolean
----@return integer
----@return string
-function env.execute_in_pwsh(command, pwsh_path)
-    pwsh_path = pwsh_path or "pwsh"
-
-    command:gsub("\"", "\\\"")
-    return env.execute("pwsh -Command \"" .. command .. "\"")
 end
 
 return env
