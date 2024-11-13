@@ -1,7 +1,7 @@
 ---@class lua-config.environment
 ---@field package cache table<string, string>
 ---
----@field os "windows" | "linux" | "macOS"
+---@field os "windows" | "linux"
 ---@field is_windows boolean
 ---@field is_admin boolean
 ---
@@ -34,14 +34,7 @@ end
 if package.config:sub(1, 1) == '\\' then
     env.os = "windows"
 else
-    -- Attempt to detect macOS
-    local _, _, result = env.execute("uname")
-
-    if result == "Darwin" then
-        env.os = "macOS"
-    else
-        env.os = "linux"
-    end
+    env.os = "linux"
 end
 env.is_windows = env.os == "windows"
 
@@ -88,7 +81,6 @@ function env.get(name, scope)
 end
 
 ---@alias lua-config.environment.variable.scope
----|>"lua"
 ---| "user"
 ---| "machine"
 
@@ -96,8 +88,6 @@ end
 ---@param value string
 ---@param scope lua-config.environment.variable.scope | nil
 function env.set(name, value, scope)
-    scope = scope or "lua"
-
     env.cache[name] = value
     if scope == "user" then
         if env.is_windows then
@@ -114,7 +104,7 @@ function env.set(name, value, scope)
         end
 
         if env.is_windows then
-            env.execute('setx "' .. name .. '" "' .. value .. '"/M')
+            env.execute('setx "' .. name .. '" "' .. value .. '" /M')
         else
             env.execute("sudo sed -i '/" .. name .. "=/d' /etc/environment")
             env.execute("echo '" .. name .. "=\"" .. value .. "\"' | sudo tee -a /etc/environment")
@@ -125,8 +115,6 @@ end
 ---@param name string
 ---@param scope lua-config.environment.variable.scope | nil
 function env.remove(name, scope)
-    scope = scope or "lua"
-
     env.cache[name] = nil
     if scope == "user" then
         if env.is_windows then
