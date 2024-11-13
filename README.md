@@ -12,10 +12,6 @@ This is simply an lua which just brings some interaction to the filesystem as we
 3. execute `lua-config` or `lua-config.bat` in `bin` directory
 
 ## Usage
-- `config.env` for environment variable managment
-- `config.path` for some path things
-- `config` global for configuration utils
-
 There for there are no args for lua-config.
 All args are configured by the user the arg parser is just setup for you.
 Use `config.parse_args()` to parse the args after configuring with `config.args_parser`.
