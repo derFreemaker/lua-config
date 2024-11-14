@@ -1,7 +1,7 @@
 ---@class lua-config.environment
----@field package cache table<string, string>
+---@field package cache table<string, string | nil>
 ---
----@field os "windows" | "linux" | "macOS"
+---@field os "windows" | "linux"
 ---@field is_windows boolean
 ---@field is_admin boolean
 ---
@@ -34,14 +34,7 @@ end
 if package.config:sub(1, 1) == '\\' then
     env.os = "windows"
 else
-    -- Attempt to detect macOS
-    local _, _, result = env.execute("uname")
-
-    if result == "Darwin" then
-        env.os = "macOS"
-    else
-        env.os = "linux"
-    end
+    env.os = "linux"
 end
 env.is_windows = env.os == "windows"
 
@@ -67,16 +60,14 @@ else
         error("unable to get hostname!")
     end
 
-    env.hostname = handle:read("l")
+    env.hostname = handle:read("a")
     handle:close()
 end
 
 local org_getenv = os.getenv
 ---@param name string
----@param scope lua-config.environment.variable.scope | nil
 ---@return string?
-function env.get(name, scope)
-    ---@type string?
+function env.get(name)
     local value = env.cache[name]
     if value then
         return value
@@ -88,7 +79,6 @@ function env.get(name, scope)
 end
 
 ---@alias lua-config.environment.variable.scope
----|>"lua"
 ---| "user"
 ---| "machine"
 
@@ -96,57 +86,41 @@ end
 ---@param value string
 ---@param scope lua-config.environment.variable.scope | nil
 function env.set(name, value, scope)
-    scope = scope or "lua"
+    if not env.is_windows then
+        error("'env.set(...)' is windows only should not be used on unix systems")
+    end
 
-    env.cache[name] = value
     if scope == "user" then
-        if env.is_windows then
-            env.execute('setx "' .. name .. '" "' .. value .. '"')
-        else
-            local user_profile = os.getenv("HOME") .. "/.bashrc"
-            env.execute("sed -i '/export " .. name .. "=/d' " .. user_profile)
-            env.execute("echo 'export " .. name .. "=\"" .. value .. "\"' >> " .. user_profile)
-            env.execute("source " .. user_profile)
-        end
+        env.execute('setx "' .. name .. '" "' .. value .. '"')
     elseif scope == "machine" then
         if not env.is_admin then
             error("unable to set machine environment variables without admin privileges")
         end
 
-        if env.is_windows then
-            env.execute('setx "' .. name .. '" "' .. value .. '"/M')
-        else
-            env.execute("sudo sed -i '/" .. name .. "=/d' /etc/environment")
-            env.execute("echo '" .. name .. "=\"" .. value .. "\"' | sudo tee -a /etc/environment")
-        end
+        env.execute('setx "' .. name .. '" "' .. value .. '" /M')
     end
+
+    env.get(name)
 end
 
 ---@param name string
 ---@param scope lua-config.environment.variable.scope | nil
 function env.remove(name, scope)
-    scope = scope or "lua"
+    if not env.is_windows then
+        error("'env.remove(...)' is windows only should not be used on unix systems")
+    end
 
-    env.cache[name] = nil
     if scope == "user" then
-        if env.is_windows then
-            env.execute('setx "' .. name .. '" ""')
-        else
-            local user_profile = os.getenv("HOME") .. "/.bashrc"
-            env.execute("sed -i '/export " .. name .. "=/d' " .. user_profile)
-            env.execute("source " .. user_profile)
-        end
+        env.execute('setx "' .. name .. '" ""')
     elseif scope == "machine" then
         if not env.is_admin then
             error("unable to remove machine environment variables without admin privileges")
         end
 
-        if env.is_windows then
-            os.execute('setx "' .. name .. '" "" /M') -- Unset machine environment variable
-        else
-            env.execute("sudo sed -i '/" .. name .. "=/d' /etc/environment")
-        end
+        env.execute('setx "' .. name .. '" "" /M')
     end
+
+    env.get(name)
 end
 
 function env.refresh()
