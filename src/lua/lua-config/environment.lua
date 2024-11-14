@@ -18,7 +18,7 @@ local env = {
 function env.execute(command)
     local handle, err_msg
     if env.is_windows then
-        handle, err_msg = io.popen("powershell -Command '".. command .. "'")
+        handle, err_msg = io.popen("powershell -Command '" .. command .. "'")
     else
         handle, err_msg = io.popen("/bin/bash -c '" .. command .. "'")
     end
@@ -82,6 +82,8 @@ end
 ---| "user"
 ---| "machine"
 
+local set_user_template = "[System.Environment]::SetEnvironmentVariable(\"%s\", \"%s\", [System.EnvironmentVariableTarget]::User)"
+local set_machine_template = "[System.Environment]::SetEnvironmentVariable(\"%s\", \"%s\", [System.EnvironmentVariableTarget]::Machine)"
 ---@param name string
 ---@param value string
 ---@param scope lua-config.environment.variable.scope | nil
@@ -89,18 +91,18 @@ function env.set(name, value, scope)
     if not env.is_windows then
         error("'env.set(...)' is windows only should not be used on unix systems")
     end
-    
+
     if scope == "user" then
-        env.execute('setx "' .. name .. '" "' .. value .. '"')
+        env.execute(set_user_template:format(name, value))
     elseif scope == "machine" then
         if not env.is_admin then
             error("unable to set machine environment variables without admin privileges")
         end
 
-        env.execute('setx "' .. name .. '" "' .. value .. '" /M')
+        env.execute(set_machine_template:format(name, value))
     end
-    
-    env.get(name)
+
+    env.refresh(name)
 end
 
 ---@param name string
@@ -114,7 +116,6 @@ function env.add(name, value, scope, before, sep)
     end
 
     sep = sep or ";"
-
     if before then
         value = value .. sep .. (env.get(name) or "")
     else
@@ -131,20 +132,16 @@ function env.remove(name, scope)
         error("'env.remove(...)' is windows only should not be used on unix systems")
     end
 
-    if scope == "user" then
-        env.execute('setx "' .. name .. '" ""')
-    elseif scope == "machine" then
-        if not env.is_admin then
-            error("unable to remove machine environment variables without admin privileges")
-        end
-
-        env.execute('setx "' .. name .. '" "" /M')
-    end
-
-    env.get(name)
+    env.set(name, "", scope)
+    env.refresh(name)
 end
 
-function env.refresh()
+---@param name string | nil
+function env.refresh(name)
+    if name then
+        env.cache[name] = org_getenv(name)
+        return
+    end
     for key in pairs(env.cache) do
         env.cache[key] = org_getenv(key)
     end
