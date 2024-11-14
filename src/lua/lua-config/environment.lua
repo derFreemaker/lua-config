@@ -89,7 +89,7 @@ function env.set(name, value, scope)
     if not env.is_windows then
         error("'env.set(...)' is windows only should not be used on unix systems")
     end
-
+    
     if scope == "user" then
         env.execute('setx "' .. name .. '" "' .. value .. '"')
     elseif scope == "machine" then
@@ -99,8 +99,29 @@ function env.set(name, value, scope)
 
         env.execute('setx "' .. name .. '" "' .. value .. '" /M')
     end
-
+    
     env.get(name)
+end
+
+---@param name string
+---@param value string
+---@param scope lua-config.environment.variable.scope | nil
+---@param before boolean | nil
+---@param sep string | nil
+function env.add(name, value, scope, before, sep)
+    if not env.is_windows then
+        error("'env.add(...)' is windows only should not be used on unix systems")
+    end
+
+    sep = sep or ";"
+
+    if before then
+        value = value .. sep .. (env.get(name) or "")
+    else
+        value = (env.get(name) or "") .. sep .. value
+    end
+
+    env.set(name, value, scope)
 end
 
 ---@param name string
