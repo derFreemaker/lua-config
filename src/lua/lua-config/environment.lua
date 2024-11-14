@@ -12,9 +12,9 @@ local env = {
 
 -- Will use 'powershell' on windows and '/bin/bash' on any other machine.
 ---@param command string
----@return boolean
----@return integer
----@return string
+---@return boolean success
+---@return integer exitcode
+---@return string output
 function env.execute(command)
     local handle, err_msg
     if env.is_windows then
