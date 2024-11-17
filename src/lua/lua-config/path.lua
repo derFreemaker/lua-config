@@ -60,12 +60,24 @@ end
 ---@param target string
 ---@return boolean success
 function _path.create_junction(path, target)
-    if config.env.is_windows then
-        local success = config.env.execute(string.format('mklink /J "%s" "%s"', path, target))
-        return success
-    else
+    if not config.env.is_windows then
         return _path.create_symlink(path, target)
     end
+
+    local success = config.env.execute(string.format('mklink /J "%s" "%s"', path, target))
+    return success
+end
+
+--- Will fallback to `create_symlink` on none windows machines.
+---@param path string
+---@param target string
+---@return boolean success
+function _path.create_shortcut(path, target)
+    if not config.env.is_windows then
+        return _path.create_symlink(path, target)
+    end
+
+    
 end
 
 return _path
