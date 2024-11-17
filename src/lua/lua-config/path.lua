@@ -77,7 +77,9 @@ function _path.create_shortcut(path, target)
         return _path.create_symlink(path, target)
     end
 
-    
+    local command = '$shell = New-Object -ComObject WScript.Shell;$shortcut = $shell.CreateShortcut("%s");$shortcut.TargetPath = "%s";$shortcut.Save()'
+    local success = config.env.execute(command:format(path, target))
+    return success
 end
 
 return _path

@@ -16,11 +16,13 @@ local env = {
 ---@return integer exitcode
 ---@return string output
 function env.execute(command)
+    command:gsub("\"", "\\\"")
+
     local handle, err_msg
     if env.is_windows then
-        handle, err_msg = io.popen("powershell -Command '" .. command .. "'")
+        handle, err_msg = io.popen("powershell -NoProfile -Command \"" .. command .. "\"")
     else
-        handle, err_msg = io.popen("/bin/bash -c '" .. command .. "'")
+        handle, err_msg = io.popen("/bin/bash --noprofile --norc -c \"" .. command .. "\"")
     end
     if not handle then
         error("unable to open process handle:\n" .. err_msg)
