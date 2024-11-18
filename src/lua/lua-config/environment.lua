@@ -11,12 +11,15 @@ local env = {
 }
 
 -- Will use 'powershell' on windows and '/bin/bash' on any other machine.
+-- And will invoke with no profile to provide better consistency
 ---@param command string
 ---@return boolean success
 ---@return integer exitcode
 ---@return string output
 function env.execute(command)
-    command:gsub("\"", "\\\"")
+    if env.is_windows then
+        command = command:gsub("\"", "\\\"")
+    end
 
     local handle, err_msg
     if env.is_windows then
