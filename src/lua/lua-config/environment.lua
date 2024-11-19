@@ -91,11 +91,11 @@ local set_user_template = "[System.Environment]::SetEnvironmentVariable(\"%s\", 
 local set_machine_template = "[System.Environment]::SetEnvironmentVariable(\"%s\", \"%s\", [System.EnvironmentVariableTarget]::Machine)"
 ---@param name string
 ---@param value string
----@param scope lua-config.environment.variable.scope | nil
+---@param scope lua-config.environment.variable.scope
 ---@return boolean
 function env.set(name, value, scope)
     if not env.is_windows then
-        error("'env.set(...)' is windows only should not be used on unix systems")
+        error("'env.set(...)' is windows only")
     end
 
     if scope == "user" then
@@ -112,19 +112,19 @@ function env.set(name, value, scope)
         end
     end
 
-    env.refresh(name)
+    env.cache[name] = value
     return true
 end
 
 ---@param name string
 ---@param value string
----@param scope lua-config.environment.variable.scope | nil
+---@param scope lua-config.environment.variable.scope
 ---@param before boolean | nil
 ---@param sep string | nil
 ---@return boolean
 function env.add(name, value, scope, before, sep)
     if not env.is_windows then
-        error("'env.add(...)' is windows only should not be used on unix systems")
+        error("'env.add(...)' is windows only")
     end
 
     sep = sep or ";"
@@ -138,17 +138,17 @@ function env.add(name, value, scope, before, sep)
 end
 
 ---@param name string
----@param scope lua-config.environment.variable.scope | nil
+---@param scope lua-config.environment.variable.scope
 ---@return boolean
 function env.remove(name, scope)
     if not env.is_windows then
-        error("'env.remove(...)' is windows only should not be used on unix systems")
+        error("'env.remove(...)' is windows only")
     end
 
     if not env.set(name, "", scope) then
         return false
     end
-    env.refresh(name)
+    env.cache[name] = nil
 
     return true
 end
