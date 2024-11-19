@@ -1,5 +1,5 @@
 ---@class lua-config.environment
----@field package cache table<string, string | nil>
+---@field package cache table<string, string>
 ---
 ---@field os "windows" | "linux"
 ---@field is_windows boolean
@@ -72,14 +72,14 @@ end
 
 local org_getenv = os.getenv
 ---@param name string
----@return string?
+---@return string
 function env.get(name)
     local value = env.cache[name]
     if value then
         return value
     end
 
-    value = org_getenv(name)
+    value = org_getenv(name) or ""
     env.cache[name] = value
     return value
 end
@@ -129,8 +129,8 @@ function env.add(name, value, scope, before, sep)
     if not env.is_windows then
         error("'env.add(...)' is windows only")
     end
-
     sep = sep or ";"
+
     if before then
         value = value .. sep .. (env.get(name) or "")
     else
@@ -141,14 +141,23 @@ function env.add(name, value, scope, before, sep)
 end
 
 ---@param name string
+---@param value string | nil
 ---@param scope lua-config.environment.variable.scope
 ---@return boolean
-function env.remove(name, scope)
+function env.remove(name, value, scope)
     if not env.is_windows then
         error("'env.remove(...)' is windows only")
     end
 
-    if not env.set(name, "", scope) then
+    if value then
+        local cur_value = env.get(name)
+        local start_pos, end_pos = cur_value:find(value, nil, true)
+        if start_pos and end_pos then
+            value = value:sub(0, start_pos - 1) .. value:sub(end_pos + 1)
+        end
+    end
+
+    if not env.set(name, value or "", scope) then
         return false
     end
     env.cache[name] = nil
