@@ -13,16 +13,19 @@ local env = {
 -- Will use 'powershell' on windows and '/bin/bash' on any other machine.
 -- And will invoke with no profile to provide better consistency
 ---@param command string
+---@param direct boolean | nil
 ---@return boolean success
 ---@return integer exitcode
 ---@return string output
-function env.execute(command)
-    command = command:gsub("\"", "\\\""):gsub("\\\"", "\\\\\\\"")
-
+function env.execute(command, direct)
     local handle, err_msg
-    if env.is_windows then
+    if direct then
+        handle, err_msg = io.popen(command)
+    elseif env.is_windows then
+        command = command:gsub("\"", "\\\"")
         handle, err_msg = io.popen("powershell -NoProfile -Command \"" .. command .. "\"")
     else
+        command = command:gsub("\"", "\\\"")
         handle, err_msg = io.popen("/bin/bash --noprofile --norc -c \"" .. command .. "\"")
     end
     if not handle then
@@ -85,8 +88,10 @@ end
 ---| "user"
 ---| "machine"
 
-local set_user_template = "[System.Environment]::SetEnvironmentVariable(\"%s\", \"%s\", [System.EnvironmentVariableTarget]::User)"
-local set_machine_template = "[System.Environment]::SetEnvironmentVariable(\"%s\", \"%s\", [System.EnvironmentVariableTarget]::Machine)"
+local set_user_template =
+"[System.Environment]::SetEnvironmentVariable(\"%s\", \"%s\", [System.EnvironmentVariableTarget]::User)"
+local set_machine_template =
+"[System.Environment]::SetEnvironmentVariable(\"%s\", \"%s\", [System.EnvironmentVariableTarget]::Machine)"
 ---@param name string
 ---@param value string
 ---@param scope lua-config.environment.variable.scope

@@ -64,7 +64,7 @@ function _path.create_junction(path, target)
         return _path.create_symlink(path, target)
     end
 
-    local success = config.env.execute(string.format('mklink /J "%s" "%s"', path, target))
+    local success = config.env.execute(string.format('mklink /J "%s" "%s"', path, target), true)
     return success
 end
 
