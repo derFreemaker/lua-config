@@ -17,9 +17,7 @@ local env = {
 ---@return integer exitcode
 ---@return string output
 function env.execute(command)
-    if env.is_windows then
-        command = command:gsub("\"", "\\\"")
-    end
+    command = command:gsub("\"", "\\\""):gsub("\\\"", "\\\\\\\"")
 
     local handle, err_msg
     if env.is_windows then
