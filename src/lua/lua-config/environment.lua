@@ -120,6 +120,22 @@ function env.set(name, value, scope)
 end
 
 ---@param name string
+---@param scope lua-config.environment.variable.scope
+---@return boolean
+function env.unset(name, scope)
+    if not env.is_windows then
+        error("'env.remove(...)' is windows only")
+    end
+
+    if not env.set(name, "", scope) then
+        return false
+    end
+    env.cache[name] = ""
+
+    return true
+end
+
+---@param name string
 ---@param value string
 ---@param scope lua-config.environment.variable.scope
 ---@param before boolean | nil
@@ -141,7 +157,7 @@ function env.add(name, value, scope, before, sep)
 end
 
 ---@param name string
----@param value string | nil
+---@param value string
 ---@param scope lua-config.environment.variable.scope
 ---@return boolean
 function env.remove(name, value, scope)
@@ -149,19 +165,19 @@ function env.remove(name, value, scope)
         error("'env.remove(...)' is windows only")
     end
 
-    if value then
-        local cur_value = env.get(name)
-        local start_pos, end_pos = cur_value:find(value, nil, true)
-        if start_pos and end_pos then
-            value = value:sub(0, start_pos - 1) .. value:sub(end_pos + 1)
-        end
-    end
-
-    if not env.set(name, value or "", scope) then
+    local cur_value = env.get(name)
+    local start_pos, end_pos = cur_value:find(value, nil, true)
+    if not start_pos or not end_pos then
         return false
     end
-    env.cache[name] = nil
 
+    value = value:sub(0, start_pos - 1) .. value:sub(end_pos + 1)
+
+    if not env.set(name, value, scope) then
+        return false
+    end
+
+    env.cache[name] = value
     return true
 end
 
