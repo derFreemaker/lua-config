@@ -14,10 +14,8 @@ local env = {
 -- And will invoke with no profile to provide better consistency
 ---@param command string
 ---@param direct boolean | nil
----@return boolean success
----@return integer exitcode
----@return string output
-function env.execute(command, direct)
+---@return file* handle
+function env.start_execute(command, direct)
     local handle, err_msg
     if direct then
         handle, err_msg = io.popen(command)
@@ -32,9 +30,29 @@ function env.execute(command, direct)
         error("unable to open process handle:\n" .. err_msg)
     end
 
+    return handle
+end
+
+---@param handle file*
+---@return boolean success
+---@return integer exitcode
+---@return string output
+function env.end_execute(handle)
     local result = handle:read("*a")
     local success, _, code = handle:close()
     return (success == true) or false, code or 1, result
+end
+
+-- Will use 'powershell' on windows and '/bin/bash' on any other machine.
+-- And will invoke with no profile to provide better consistency
+---@param command string
+---@param direct boolean | nil
+---@return boolean success
+---@return integer exitcode
+---@return string output
+function env.execute(command, direct)
+    local handle = env.start_execute(command, direct)
+    return env.end_execute(handle)
 end
 
 if package.config:sub(1, 1) == '\\' then
