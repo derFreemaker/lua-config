@@ -38,7 +38,8 @@ end
 ---@return integer exitcode
 ---@return string output
 function env.end_execute(handle)
-    local result = handle:read("*a")
+    handle:seek("set", 0)
+    local result = handle:read("a")
     local success, _, code = handle:close()
     return (success == true) or false, code or 1, result
 end
