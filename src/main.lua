@@ -11,9 +11,12 @@ end
 ---@param ... string
 ---@return string, string[]
 local function sepperate_args(path, ...)
-    return path or "F:/Coding/Lua/lua-config", { ... }
+    return path, { ... }
 end
 local lua_config_dir, args = sepperate_args(...)
+if not lua_config_dir then
+    error("no lua_config_dir provided as first argument (is the root directory of lua-config)")
+end
 
 lua_config_dir = lua_config_dir:gsub("\\", "/")
 if lua_config_dir:sub(lua_config_dir:len()) ~= "/" then
