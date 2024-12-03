@@ -1,12 +1,18 @@
+local org_getenv = os.getenv
+
+---@alias lua-config.environment.variable.scope
+---| "user"
+---| "machine"
+
 ---@class lua-config.environment
----@field package cache table<string, string>
+---@field package cache table<string, table<"all" | lua-config.environment.variable.scope, string>>
 ---
----@field os "windows" | "linux"
+---@field os "windows" | "unix"
 ---@field is_windows boolean
 ---@field is_admin boolean
 ---
 ---@field hostname string
-local env = {
+local _env = {
     cache = {},
 }
 
@@ -15,11 +21,11 @@ local env = {
 ---@param command string
 ---@param direct boolean | nil
 ---@return file* handle
-function env.start_execute(command, direct)
+function _env.start_execute(command, direct)
     local handle, err_msg
     if direct then
         handle, err_msg = io.popen(command)
-    elseif env.is_windows then
+    elseif _env.is_windows then
         command = command:gsub("\"", "\\\"")
         handle, err_msg = io.popen("powershell -NoProfile -Command \"" .. command .. "\"")
     else
@@ -37,7 +43,7 @@ end
 ---@return boolean success
 ---@return integer exitcode
 ---@return string output
-function env.end_execute(handle)
+function _env.end_execute(handle)
     handle:seek("set", 0)
     local result = handle:read("a")
     local success, _, code = handle:close()
@@ -51,25 +57,25 @@ end
 ---@return boolean success
 ---@return integer exitcode
 ---@return string output
-function env.execute(command, direct)
-    local handle = env.start_execute(command, direct)
-    return env.end_execute(handle)
+function _env.execute(command, direct)
+    local handle = _env.start_execute(command, direct)
+    return _env.end_execute(handle)
 end
 
 if package.config:sub(1, 1) == '\\' then
-    env.os = "windows"
+    _env.os = "windows"
 else
-    env.os = "linux"
+    _env.os = "unix"
 end
-env.is_windows = env.os == "windows"
+_env.is_windows = _env.os == "windows"
 
-if env.os == "windows" then
-    env.is_admin = env.execute("net session 2>&1")
+if _env.os == "windows" then
+    _env.is_admin = _env.execute("net session 2>&1")
 else
-    env.is_admin = env.execute("sudo -n true 2>&1")
+    _env.is_admin = _env.execute("sudo -n true 2>&1")
 end
-function env.check_admin()
-    if env.is_admin then
+function _env.check_admin()
+    if _env.is_admin then
         return
     end
 
@@ -77,35 +83,62 @@ function env.check_admin()
     os.exit(1)
 end
 
-if env.is_windows then
-    env.hostname = os.getenv("COMPUTERNAME"):lower()
+if _env.is_windows then
+    _env.hostname = org_getenv("COMPUTERNAME"):lower()
 else
     local handle = io.popen("/bin/hostname", "r")
     if not handle then
         error("unable to get hostname!")
     end
 
-    env.hostname = handle:read("a")
+    _env.hostname = handle:read("a")
     handle:close()
 end
 
-local org_getenv = os.getenv
+local get_user_template =
+"[System.Environment]::GetEnvironmentVariable(\"%s\", [System.EnvironmentVariableTarget]::User)"
+local get_machine_template =
+"[System.Environment]::GetEnvironmentVariable(\"%s\", [System.EnvironmentVariableTarget]::Machine)"
+
+--- With 'nil' scope will return all data from user and machine
 ---@param name string
+---@param scope lua-config.environment.variable.scope | "all" | nil
 ---@return string
-function env.get(name)
-    local value = env.cache[name]
-    if value then
-        return value
+function _env.get(name, scope)
+    scope = scope or "all"
+    ---@cast scope -string
+
+    local variable = _env.cache[name]
+    if variable and variable[scope] then
+        return variable[scope]
     end
 
-    value = org_getenv(name) or ""
-    env.cache[name] = value
+    ---@type string
+    local value
+    if scope == "all" then
+        value = org_getenv(name) or ""
+    elseif scope == "user" then
+        local success, _, result = _env.execute(get_user_template:format(name))
+        if not success then
+            error("unable to get env variable:\n" .. result)
+        end
+        value = result
+    elseif scope == "machine" then
+        local success, _, result = _env.execute(get_machine_template:format(name))
+        if not success then
+            error("unable to get env variable:\n" .. result)
+        end
+        value = result
+    end
+
+    if not variable then
+        variable = {}
+        _env.cache[name] = variable
+    end
+    variable[scope] = value
+
     return value
 end
-
----@alias lua-config.environment.variable.scope
----| "user"
----| "machine"
 
 local set_user_template =
 "[System.Environment]::SetEnvironmentVariable(\"%s\", \"%s\", [System.EnvironmentVariableTarget]::User)"
@@ -115,41 +148,41 @@ local set_machine_template =
 ---@param value string
 ---@param scope lua-config.environment.variable.scope
 ---@return boolean
-function env.set(name, value, scope)
-    if not env.is_windows then
+function _env.set(name, value, scope)
+    if not _env.is_windows then
         error("'env.set(...)' is windows only")
     end
 
     if scope == "user" then
-        if not env.execute(set_user_template:format(name, value)) then
+        if not _env.execute(set_user_template:format(name, value)) then
             return false
         end
     elseif scope == "machine" then
-        if not env.is_admin then
+        if not _env.is_admin then
             error("unable to set machine environment variables without admin privileges")
         end
 
-        if not env.execute(set_machine_template:format(name, value)) then
+        if not _env.execute(set_machine_template:format(name, value)) then
             return false
         end
     end
 
-    env.cache[name] = value
+    _env.cache[name][scope] = value
     return true
 end
 
 ---@param name string
 ---@param scope lua-config.environment.variable.scope
 ---@return boolean
-function env.unset(name, scope)
-    if not env.is_windows then
+function _env.unset(name, scope)
+    if not _env.is_windows then
         error("'env.remove(...)' is windows only")
     end
 
-    if not env.set(name, "", scope) then
+    if not _env.set(name, "", scope) then
         return false
     end
-    env.cache[name] = ""
+    _env.cache[name][scope] = ""
 
     return true
 end
@@ -160,31 +193,31 @@ end
 ---@param before boolean | nil
 ---@param sep string | nil
 ---@return boolean
-function env.add(name, value, scope, before, sep)
-    if not env.is_windows then
+function _env.add(name, value, scope, before, sep)
+    if not _env.is_windows then
         error("'env.add(...)' is windows only")
     end
     sep = sep or ";"
 
     if before then
-        value = value .. sep .. (env.get(name) or "")
+        value = value .. sep .. (_env.get(name, scope) or "")
     else
-        value = (env.get(name) or "") .. sep .. value
+        value = (_env.get(name, scope) or "") .. sep .. value
     end
 
-    return env.set(name, value, scope)
+    return _env.set(name, value, scope)
 end
 
 ---@param name string
 ---@param value string
 ---@param scope lua-config.environment.variable.scope
 ---@return boolean
-function env.remove(name, value, scope)
-    if not env.is_windows then
+function _env.remove(name, value, scope)
+    if not _env.is_windows then
         error("'env.remove(...)' is windows only")
     end
 
-    local cur_value = env.get(name)
+    local cur_value = _env.get(name, scope)
     local start_pos, end_pos = cur_value:find(value, nil, true)
     if not start_pos or not end_pos then
         return false
@@ -192,23 +225,29 @@ function env.remove(name, value, scope)
 
     value = value:sub(0, start_pos - 1) .. value:sub(end_pos + 1)
 
-    if not env.set(name, value, scope) then
-        return false
-    end
-
-    env.cache[name] = value
-    return true
+    return _env.set(name, value, scope)
 end
 
 ---@param name string | nil
-function env.refresh(name)
+function _env.refresh(name)
     if name then
-        env.cache[name] = org_getenv(name)
+        for scope in pairs(_env.cache[name]) do
+            _env.cache[name][scope] = _env.get(name, scope)
+        end
         return
     end
-    for key in pairs(env.cache) do
-        env.cache[key] = org_getenv(key)
+    for key in pairs(_env.cache) do
+        for scope in pairs(_env.cache[key]) do
+            _env.cache[key][scope] = _env.get(key, scope)
+        end
     end
 end
 
-return env
+---@param varname string
+---@return string?
+---@diagnostic disable-next-line: duplicate-set-field
+os.getenv = function(varname)
+    return _env.get(varname)
+end
+
+return _env

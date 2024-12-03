@@ -82,7 +82,6 @@ function config.parse_args()
 end
 
 config.env = require("lua-config.environment")
-os.getenv = config.env.get
 
 config.path = require("lua-config.path")
 config.registry = require("lua-config.registry")
