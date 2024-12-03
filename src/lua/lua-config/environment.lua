@@ -159,7 +159,7 @@ function _env.set(name, value, scope)
         end
     elseif scope == "machine" then
         if not _env.is_admin then
-            error("unable to set machine environment variables without admin privileges")
+            error("unable to set machine environment variables without elevated privileges")
         end
 
         if not _env.execute(set_machine_template:format(name, value)) then
@@ -167,7 +167,7 @@ function _env.set(name, value, scope)
         end
     end
 
-    _env.cache[name][scope] = value
+    _env.refresh(name)
     return true
 end
 
