@@ -231,7 +231,11 @@ end
 ---@param name string | nil
 function _env.refresh(name)
     if name then
-        for scope in pairs(_env.cache[name]) do
+        local variable = _env.cache[name]
+        if not variable then
+            return
+        end
+        for scope in pairs(variable) do
             _env.cache[name][scope] = _env.get(name, scope)
         end
         return
