@@ -182,7 +182,6 @@ function _env.unset(name, scope)
     if not _env.set(name, "", scope) then
         return false
     end
-    _env.cache[name][scope] = ""
 
     return true
 end
