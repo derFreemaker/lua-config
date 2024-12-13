@@ -1,5 +1,7 @@
 local org_getenv = os.getenv
 
+local utils = require("lua-config.third-party.utils")
+
 ---@alias lua-config.environment.variable.scope
 ---| "user"
 ---| "machine"
@@ -113,10 +115,10 @@ function _env.get(name, scope)
         return variable[scope]
     end
 
-    ---@type string
+    ---@type string | nil
     local value
     if scope == "all" then
-        value = org_getenv(name) or ""
+        value = org_getenv(name)
     elseif scope == "user" then
         local success, _, result = _env.execute(get_user_template:format(name))
         if not success then
@@ -132,6 +134,7 @@ function _env.get(name, scope)
     else
         error("invalid scope '" .. scope .. "'")
     end
+    value = value or ""
 
     -- we just remove newlines since there should never be any in an env variable
     value = value:gsub("\n", "")
@@ -203,33 +206,44 @@ function _env.add(name, value, scope, before, sep)
     end
     sep = sep or ";"
 
-    if before then
-        value = value .. sep .. (_env.get(name, scope) or "")
-    else
-        value = (_env.get(name, scope) or "") .. sep .. value
+    local items = utils.string.split(_env.get(name, scope) or "", sep)
+    for i, item in ipairs(items) do
+        if item == value then
+            if not before then
+                return true
+            end
+            table.remove(items, i)
+        end
     end
 
-    return _env.set(name, value, scope)
+    if before then
+        table.insert(items, 1, value)
+    else
+        table.insert(items, value)
+    end
+
+    return _env.set(name, table.concat(items, sep), scope)
 end
 
 ---@param name string
 ---@param value string
 ---@param scope lua-config.environment.variable.scope
+---@param sep string | nil
 ---@return boolean
-function _env.remove(name, value, scope)
+function _env.remove(name, value, scope, sep)
     if not _env.is_windows then
         error("'env.remove(...)' is windows only")
     end
+    sep = sep or ";"
 
-    local cur_value = _env.get(name, scope)
-    local start_pos, end_pos = cur_value:find(value, nil, true)
-    if not start_pos or not end_pos then
-        return false
+    local items = utils.string.split(_env.get(name, scope) or "")
+    for i, item in ipairs(items) do
+        if item == value then
+            table.remove(items, i)
+        end
     end
 
-    value = value:sub(0, start_pos - 1) .. value:sub(end_pos + 1)
-
-    return _env.set(name, value, scope)
+    return _env.set(name, table.concat(items, sep), scope)
 end
 
 ---@param name string | nil
