@@ -129,7 +129,12 @@ function _env.get(name, scope)
             error("unable to get env variable:\n" .. result)
         end
         value = result
+    else
+        error("invalid scope '" .. scope .. "'")
     end
+
+    -- we just remove newlines since there should never be any in an env variable
+    value = value:gsub("\n", "")
 
     if not variable then
         variable = {}
