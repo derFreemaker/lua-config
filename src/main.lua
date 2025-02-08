@@ -46,7 +46,7 @@ local function setup_path(path, package_path, package_cpath)
     package.path = package.path .. ";" .. path .. package_path .. "?.lua"
     package.cpath = package.cpath .. ";" .. path .. package_cpath .. "?" .. dynamic_lib_ext
 end
-setup_path(lua_config_dir, "src/lua/", "lib/")
+setup_path(lua_config_dir, "src/lua/")
 
 ---@type boolean, lfs
 local lfs_status, lfs = pcall(require, "lfs")

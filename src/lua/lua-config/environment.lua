@@ -107,6 +107,10 @@ local get_machine_template =
 ---@param scope lua-config.environment.variable.scope | "all" | nil
 ---@return string
 function _env.get(name, scope)
+    if not _env.is_windows then
+        error("'_env.get' is windows only")
+    end
+
     scope = scope or "all"
     ---@cast scope -string
 
@@ -269,7 +273,11 @@ end
 ---@return string?
 ---@diagnostic disable-next-line: duplicate-set-field
 os.getenv = function(varname)
-    return _env.get(varname)
+    if _env.is_windows then
+        return _env.get(varname)
+    else
+        return org_getenv(varname)
+    end
 end
 
 return _env
