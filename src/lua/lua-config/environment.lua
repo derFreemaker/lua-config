@@ -18,11 +18,13 @@ local _env = {
     cache = {},
 }
 
+---@class lua-config.execution
+
 -- Will use 'powershell' on windows and '/bin/bash' on any other machine.
 -- And will invoke with no profile to provide better consistency
 ---@param command string
 ---@param direct boolean | nil
----@return file* handle
+---@return lua-config.execution handle
 function _env.start_execute(command, direct)
     local handle, err_msg
     if direct then
@@ -38,14 +40,18 @@ function _env.start_execute(command, direct)
         error("unable to open process handle:\n" .. err_msg)
     end
 
+    ---@cast handle lua-config.execution
     return handle
 end
 
----@param handle file*
+---@param handle lua-config.execution
 ---@return boolean success
 ---@return integer exitcode
 ---@return string output
 function _env.end_execute(handle)
+    ---@diagnostic disable-next-line: cast-type-mismatch
+    ---@cast handle file*
+
     handle:seek("set", 0)
     local result = handle:read("a")
     local success, _, code = handle:close()
@@ -209,6 +215,7 @@ function _env.add(name, value, scope, before, sep)
         error("'env.add(...)' is windows only")
     end
     sep = sep or ";"
+
 
     local items = utils.string.split(_env.get(name, scope) or "", sep)
     for i, item in ipairs(items) do
