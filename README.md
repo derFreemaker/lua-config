@@ -19,6 +19,9 @@ Use `config.parse_args()` to parse the args after configuring with `config.args_
 ## Builtin
 - For filesystem interactions [lua-filesystem](https://lunarmodules.github.io/luafilesystem) is comming with it and can be access with the `lfs` global.
 
+## Dependencies
+- [lua-filesystem](https://lunarmodules.github.io/luafilesystem)
+
 ## Third-Party
 - [argparse](https://github.com/mpeterv/argparse)
 - [lua-filesystem](https://lunarmodules.github.io/luafilesystem)

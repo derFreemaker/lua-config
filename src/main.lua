@@ -1,12 +1,3 @@
----@return "windows" | "unix"
-local function get_os()
-    if package.config:sub(1, 1) == '\\' then
-        return "windows"
-    else
-        return "unix"
-    end
-end
-
 ---@param path string
 ---@param ... string
 ---@return string, string[]
@@ -38,15 +29,10 @@ local function setup_path(path, package_path, package_cpath)
     package_path = package_path or ""
     package_cpath = package_cpath or ""
 
-    local dynamic_lib_ext = ".so"
-    if get_os() == "windows" then
-        dynamic_lib_ext = ".dll"
-    end
-
     package.path = package.path .. ";" .. path .. package_path .. "?.lua"
-    package.cpath = package.cpath .. ";" .. path .. package_cpath .. "?" .. dynamic_lib_ext
 end
 setup_path(lua_config_dir, "src/lua/")
+setup_path(lua_config_dir, "lib/")
 
 ---@type boolean, lfs
 local lfs_status, lfs = pcall(require, "lfs")
