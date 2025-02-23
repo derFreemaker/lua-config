@@ -22,6 +22,14 @@ local function get_parent_dir(path)
 end
 local parent_dir = get_parent_dir(lua_config_dir)
 
+---@return "windows" | "unix"
+local function get_os()
+    if package.config:sub(1, 1) == '\\' then
+        return "windows"
+    else
+        return "unix"
+    end
+end
 ---@param path string
 ---@param package_path string | nil
 ---@param package_cpath string | nil
@@ -29,7 +37,13 @@ local function setup_path(path, package_path, package_cpath)
     package_path = package_path or ""
     package_cpath = package_cpath or ""
 
-    package.path = package.path .. ";" .. path .. package_path .. "?.lua"
+    local dynamic_lib_ext = ".so"
+    if get_os() == "windows" then
+        dynamic_lib_ext = ".dll"
+    end
+
+    package.path = path .. package_path .. "?.lua" .. ";" .. package.path
+    package.cpath = path .. package_cpath .. "?" .. dynamic_lib_ext .. ";" .. package.cpath
 end
 setup_path(lua_config_dir, "src/lua/")
 
