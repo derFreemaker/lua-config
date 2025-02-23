@@ -1,4 +1,4 @@
-local lfs = lfs
+local lfs = require("lua-config.third-party.lfs")
 
 ---@class lua-config.path
 local _path = {}

@@ -32,10 +32,9 @@ local function setup_path(path, package_path, package_cpath)
     package.path = package.path .. ";" .. path .. package_path .. "?.lua"
 end
 setup_path(lua_config_dir, "src/lua/")
-setup_path(lua_config_dir, "lib/")
 
 ---@type boolean, lfs
-local lfs_status, lfs = pcall(require, "lfs")
+local lfs_status, lfs = pcall(require, "lua-config.third-party.lfs")
 if not lfs_status then
     error("failed to load LuaFileSystem library:\n" .. lfs)
 end
