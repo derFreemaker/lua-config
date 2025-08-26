@@ -11,15 +11,16 @@ function _path.home(path)
         return home_path
     end
 
-    if home_path:sub(home_path_lenght,home_path_lenght) ~= "/"
-        and path:sub(1,1) ~= "/" then
+    if home_path:sub(home_path_lenght, home_path_lenght) ~= "/"
+        and path:sub(1, 1) ~= "/" then
         path = "/" .. path
     end
 
     return home_path .. path
 end
 
---- Resolves path and addes hostname if directory is found
+--- Resolves path and addes hostname if directory
+--- is found with the host name as sub directory.
 ---@param path string
 ---@return string
 function _path.add_hostname_if_found(path)
@@ -77,7 +78,8 @@ function _path.create_shortcut(path, target)
         return _path.create_symlink(path, target)
     end
 
-    local command = '$shell = New-Object -ComObject WScript.Shell;$shortcut = $shell.CreateShortcut("%s");$shortcut.TargetPath = "%s";$shortcut.Save()'
+    local command =
+    '$shell = New-Object -ComObject WScript.Shell;$shortcut = $shell.CreateShortcut("%s");$shortcut.TargetPath = "%s";$shortcut.Save()'
     local success = config.env.execute(command:format(path, target))
     return success
 end
