@@ -116,8 +116,9 @@ end
 --- With 'nil' scope will return all data from user and machine
 ---@param name string
 ---@param scope lua-config.environment.variable.scope | "all" | nil
+---@param ignore_cache boolean?
 ---@return string
-function _env.get(name, scope)
+function _env.get(name, scope, ignore_cache)
     if not _env.is_windows then
         error("'_env.get' is windows only")
     end
@@ -125,9 +126,11 @@ function _env.get(name, scope)
     scope = scope or "all"
     ---@cast scope -string
 
-    local variable = _env.cache[name]
-    if variable and variable[scope] then
-        return variable[scope]
+    if not ignore_cache then
+        local variable = _env.cache[name]
+        if variable and variable[scope] then
+            return variable[scope]
+        end
     end
 
     ---@type string | nil
@@ -263,16 +266,16 @@ function _env.refresh(name)
     if name then
         local variable = _env.cache[name]
         if not variable then
-            return
+            return -- we lazy load environment variables
         end
         for scope in pairs(variable) do
-            _env.cache[name][scope] = _env.get(name, scope)
+            _env.cache[name][scope] = _env.get(name, scope, true)
         end
         return
     end
     for key in pairs(_env.cache) do
         for scope in pairs(_env.cache[key]) do
-            _env.cache[key][scope] = _env.get(key, scope)
+            _env.cache[key][scope] = _env.get(key, scope, true)
         end
     end
 end
