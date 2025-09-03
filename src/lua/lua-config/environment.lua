@@ -189,7 +189,13 @@ function _env.set(name, value, scope)
         end
     end
 
-    _env.cache[name][scope] = value;
+    local variable = _env.cache[name]
+    if not variable then
+        variable = {}
+        _env.cache[name] = variable
+    end
+    variable[scope] = value;
+
     return true
 end
 
