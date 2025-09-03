@@ -189,7 +189,7 @@ function _env.set(name, value, scope)
         end
     end
 
-    _env.refresh(name)
+    _env.cache[name][scope] = value;
     return true
 end
 
