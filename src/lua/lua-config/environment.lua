@@ -2,6 +2,16 @@ local org_getenv = os.getenv
 
 local utils = require("lua-config.third-party.utils")
 
+local get_user_template =
+"$e = [Microsoft.Win32.Registry]::CurrentUser.OpenSubKey(\"Environment\"); Write-Output $e.GetValue(\"%s\"); $e.Close()"
+local set_user_template =
+"$e = [Microsoft.Win32.Registry]::CurrentUser.OpenSubKey(\"Environment\", $true); Write-Output $e.GetValue(\"%s\"); $e.Close()"
+
+local get_machine_template =
+"$e = [Microsoft.Win32.Registry]::LocalMachine.OpenSubKey(\"SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment\"); Write-Output $e.GetValue(\"%s\"); $e.Close()"
+local set_machine_template =
+"$e = [Microsoft.Win32.Registry]::LocalMachine.OpenSubKey(\"SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment\", $true); Write-Output $e.GetValue(\"%s\"); $e.Close()"
+
 ---@alias lua-config.environment.variable.scope
 ---| "user"
 ---| "machine"
@@ -103,11 +113,6 @@ else
     handle:close()
 end
 
-local get_user_template =
-"[System.Environment]::GetEnvironmentVariable(\"%s\", [System.EnvironmentVariableTarget]::User)"
-local get_machine_template =
-"[System.Environment]::GetEnvironmentVariable(\"%s\", [System.EnvironmentVariableTarget]::Machine)"
-
 --- With 'nil' scope will return all data from user and machine
 ---@param name string
 ---@param scope lua-config.environment.variable.scope | "all" | nil
@@ -158,10 +163,6 @@ function _env.get(name, scope)
     return value
 end
 
-local set_user_template =
-"[System.Environment]::SetEnvironmentVariable(\"%s\", \"%s\", [System.EnvironmentVariableTarget]::User)"
-local set_machine_template =
-"[System.Environment]::SetEnvironmentVariable(\"%s\", \"%s\", [System.EnvironmentVariableTarget]::Machine)"
 ---@param name string
 ---@param value string
 ---@param scope lua-config.environment.variable.scope
