@@ -1,6 +1,6 @@
-# NOT FINISHED & NOT RECOMMENDED
+# NOT RECOMMENDED
 Its a personal project there for its not good code or optimized.
-This is not regulary tested / used on linux there are linux needed files included like `lfs.so` for linux.
+Used for personal interest.
 
 # lua-config
 Configuration loader in lua to load configurations for multiple PCs or platforms configuration, while maintaing one config repo for example windows, linux and maybe portable.
