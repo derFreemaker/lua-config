@@ -5,12 +5,16 @@ local utils = require("lua-config.third-party.utils")
 local get_user_template =
 "$e = [Microsoft.Win32.Registry]::CurrentUser.OpenSubKey(\"Environment\"); Write-Output $e.GetValue(\"%s\"); $e.Close()"
 local set_user_template =
-"$e = [Microsoft.Win32.Registry]::CurrentUser.OpenSubKey(\"Environment\", $true); Write-Output $e.GetValue(\"%s\"); $e.Close()"
+"$e = [Microsoft.Win32.Registry]::CurrentUser.OpenSubKey(\"Environment\", $true); Write-Output $e.SetValue(\"%s\", \"%s\"); $e.Close()"
+local delete_user_template =
+"$e = [Microsoft.Win32.Registry]::CurrentUser.OpenSubKey(\"Environment\", $true); Write-Output $e.DeleteValue(\"%s\"); $e.Close()"
 
 local get_machine_template =
 "$e = [Microsoft.Win32.Registry]::LocalMachine.OpenSubKey(\"SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment\"); Write-Output $e.GetValue(\"%s\"); $e.Close()"
 local set_machine_template =
-"$e = [Microsoft.Win32.Registry]::LocalMachine.OpenSubKey(\"SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment\", $true); Write-Output $e.GetValue(\"%s\"); $e.Close()"
+"$e = [Microsoft.Win32.Registry]::LocalMachine.OpenSubKey(\"SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment\", $true); Write-Output $e.SetValue(\"%s\", \"%s\"); $e.Close()"
+local delete_machine_template =
+"$e = [Microsoft.Win32.Registry]::LocalMachine.OpenSubKey(\"SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment\", $true); Write-Output $e.DeleteValue(\"%s\"); $e.Close()"
 
 ---@alias lua-config.environment.variable.scope
 ---| "user"
@@ -36,16 +40,25 @@ local _env = {
 ---@param direct boolean | nil
 ---@return lua-config.execution handle
 function _env.start_execute(command, direct)
-    local handle, err_msg
     if direct then
-        handle, err_msg = io.popen(command)
-    elseif _env.is_windows then
-        command = command:gsub("\"", "\\\"")
+        local handle, err_msg = io.popen(command)
+        if not handle then
+            error("unable to open process handle:\n" .. err_msg)
+        end
+
+        ---@diagnostic disable-next-line: cast-type-mismatch
+        ---@cast handle lua-config.execution
+        return handle
+    end
+
+    local handle, err_msg
+    command = command:gsub("\\", "/"):gsub("\"", "\\\"")
+    if _env.is_windows then
         handle, err_msg = io.popen("powershell -NoProfile -Command \"" .. command .. "\"")
     else
-        command = command:gsub("\"", "\\\"")
         handle, err_msg = io.popen("/bin/bash --noprofile --norc -c \"" .. command .. "\"")
     end
+
     if not handle then
         error("unable to open process handle:\n" .. err_msg)
     end
@@ -167,7 +180,7 @@ function _env.get(name, scope, ignore_cache)
 end
 
 ---@param name string
----@param value string
+---@param value string?
 ---@param scope lua-config.environment.variable.scope
 ---@return boolean
 function _env.set(name, value, scope)
@@ -176,7 +189,16 @@ function _env.set(name, value, scope)
     end
 
     if scope == "user" then
-        if not _env.execute(set_user_template:format(name, value)) then
+        local command
+        if value == nil then
+            command = delete_user_template:format(name)
+        else
+            command = set_user_template:format(name, value)
+        end
+
+        local success, code, output = _env.execute(command)
+        if not success then
+            print(code, output)
             return false
         end
     elseif scope == "machine" then
@@ -184,7 +206,14 @@ function _env.set(name, value, scope)
             error("unable to set machine environment variables without elevated privileges")
         end
 
-        if not _env.execute(set_machine_template:format(name, value)) then
+        local command
+        if value == nil then
+            command = delete_machine_template:format(name)
+        else
+            command = set_machine_template:format(name, value)
+        end
+
+        if not _env.execute(command) then
             return false
         end
     end
@@ -207,7 +236,7 @@ function _env.unset(name, scope)
         error("'env.remove(...)' is windows only")
     end
 
-    if not _env.set(name, "", scope) then
+    if not _env.set(name, nil, scope) then
         return false
     end
 
