@@ -52,7 +52,7 @@ function _env.start_execute(command, direct)
     end
 
     local handle, err_msg
-    command = command:gsub("\\", "/"):gsub("\"", "\\\"")
+    command = command:gsub("\\", "\\\\"):gsub("\"", "\\\"")
     if _env.is_windows then
         handle, err_msg = io.popen("powershell -NoProfile -Command \"" .. command .. "\"")
     else
