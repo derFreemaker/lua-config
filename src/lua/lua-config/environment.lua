@@ -37,7 +37,7 @@ local _env = {
 -- Will use 'powershell' on windows and '/bin/bash' on any other machine.
 -- And will invoke with no profile to provide better consistency
 ---@param command string
----@param direct boolean | nil
+---@param direct boolean | nil don't launch in 'powershell' or '/bin/bash'
 ---@return lua-config.execution handle
 function _env.start_execute(command, direct)
     if direct then
@@ -170,6 +170,7 @@ function _env.get(name, scope, ignore_cache)
     -- we just remove newlines since there should never be any in an env variable
     value = value:gsub("\n", "")
 
+    local variable = _env.cache[name]
     if not variable then
         variable = {}
         _env.cache[name] = variable

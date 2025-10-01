@@ -1,0 +1,19 @@
+.{
+    .name = .lua_config,
+    .version = "0.0.0",
+    .fingerprint = 0x3ef1bdb6fc878825, // Changing this has security and trust implications.
+    .minimum_zig_version = "0.14.1",
+    .dependencies = .{
+        .zlua = .{
+            .url = "git+https://github.com/natecraddock/ziglua?ref=0.5.0#bf9fc6e6d9c24d5ba53b20acdab657f2fe6cb762",
+            .hash = "zlua-0.1.0-hGRpC444BQDrHc6QhcEeGh1eWMwFbl-c21vlGPWjKBfQ",
+        },
+    },
+    .paths = .{
+        "build.zig",
+        "build.zig.zon",
+        "src",
+        "LICENSE",
+        "README.md",
+    },
+}
