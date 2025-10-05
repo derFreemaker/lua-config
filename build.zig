@@ -8,7 +8,7 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
         
-        .lang = .luajit,
+        .lang = .lua54,
         .shared = true,
     }).module("zlua");
 
