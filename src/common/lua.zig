@@ -58,6 +58,10 @@ pub fn dumpStack(lua: *zlua.Lua) void {
 
 pub inline fn getLuaName(comptime T: type) [:0]const u8 {
     comptime {
+        if (isStringType(T)) {
+            return "string";
+        }
+
         return switch (@typeInfo(T)) {
             .int => "integer",
             .float => "number",
@@ -791,10 +795,6 @@ pub fn check(lua: *zlua.Lua, comptime T: type, index: i32) IndexCovered(T) {
             return IndexCovered(T).one(lua.toBoolean(index));
         },
         .pointer => |p| {
-            if (!lua.isUserdata(index)) {
-                lua.typeError(index, getLuaName(T));
-            }
-
             if (comptime isStringType(T)) {
                 const str = @as(T, lua.checkString(index));
                 return IndexCovered(T).one(str);
@@ -805,7 +805,7 @@ pub fn check(lua: *zlua.Lua, comptime T: type, index: i32) IndexCovered(T) {
                 return IndexCovered(T).one(data);
             }
 
-            const ptr = @as(T, lua.toUserdata(p.child, index));
+            const ptr = @as(T, lua.checkUserdata(p.child, index, getLuaName(T)));
             return IndexCovered(T).one(ptr);
         },
         .optional => |o| {

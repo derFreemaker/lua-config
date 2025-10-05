@@ -14,7 +14,7 @@ end
 local lua_config = require("lua_config")
 print(lua_config)
 
-local foo = lua_config:execute({ "clang", "--version", })
+local foo = lua_config.execute("clang", { "--version" })
 print(foo)
 
 local result = foo:wait()
