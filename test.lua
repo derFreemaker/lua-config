@@ -21,3 +21,17 @@ local result = foo:wait()
 print(result)
 print(result.success, result.exitcode)
 print(result.stdout)
+
+print(lua_config.fs)
+print(lua_config.fs.exists("test.lua"))
+print(lua_config.fs.currentdir())
+print(lua_config.fs.chdir("src"))
+print(lua_config.fs.currentdir())
+print(lua_config.fs.chdir(".."))
+print(lua_config.fs.currentdir())
+
+for file in lua_config.fs.dir("src") do
+    print(file)
+end
+
+print("$END$")

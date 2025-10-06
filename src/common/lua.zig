@@ -156,6 +156,22 @@ pub const ThisState = struct {
             .lua = lua,
         };
     }
+
+    pub fn is(self: *const ThisState, comptime T: type, index: i32) IndexCovered(bool) {
+        return Lua.is(self.lua, T, index);
+    }
+
+    pub fn get(self: *const ThisState, comptime T: type, index: i32) !IndexCovered(T) {
+        return Lua.get(self.lua, T, index);
+    }
+
+    pub fn check(self: *const ThisState, comptime T: type, index: i32) IndexCovered(T) {
+        return Lua.check(self.lua, T, index);
+    }
+
+    pub fn push(self: *const ThisState, value: anytype) void {
+        Lua.push(self.lua, value);
+    }
 };
 
 pub const Array = struct {
@@ -261,12 +277,13 @@ pub const Array = struct {
             size = size / child_len;
         }
 
-        var arr: []child = undefined;
-        if (ptr_info.sentinel()) |sentinel| {
-            arr = allocator.allocSentinel(child, size, sentinel) catch luaErrorOOM(lua);
-        } else {
-            arr = allocator.alloc(child, @intCast(size)) catch luaErrorOOM(lua);
-        }
+        var arr: []child = blk: {
+            if (ptr_info.sentinel()) |sentinel| {
+                break :blk allocator.allocSentinel(child, size, sentinel) catch luaErrorOOM(lua);
+            } else {
+                break :blk allocator.alloc(child, @intCast(size)) catch luaErrorOOM(lua);
+            }
+        };
 
         for (1..@intCast(size + 1)) |i| {
             inline for (0..child_len) |j| {
@@ -365,7 +382,7 @@ pub const Userdata = struct {
                                 }
 
                                 if (std.mem.eql(u8, field.luaName(), field_name)) {
-                                    field.push(L, T, struct_ptr);
+                                    field.push(L, ST, struct_ptr);
                                     return 1;
                                 }
                             }
@@ -389,7 +406,7 @@ pub const Userdata = struct {
                                 }
 
                                 if (std.mem.eql(u8, field.luaName(), key)) {
-                                    field.set(L, T, struct_ptr);
+                                    field.set(L, ST, struct_ptr);
                                 }
                             }
                         }
@@ -874,6 +891,9 @@ pub fn push(lua: *zlua.Lua, value: anytype) void {
             lua.pushLightUserdata(@ptrCast(@constCast(value)));
         },
 
+        .null => {
+            lua.pushNil();
+        },
         .optional => {
             if (value == null) {
                 lua.pushNil();

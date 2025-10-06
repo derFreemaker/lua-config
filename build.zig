@@ -9,7 +9,7 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
         
         .lang = .lua54,
-        .shared = true,
+        .shared = false,
     }).module("zlua");
 
     const lib_mod = b.createModule(.{

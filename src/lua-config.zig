@@ -12,6 +12,7 @@ const allocator = @import("allocator.zig").gpa.allocator();
 pub const __luaMeta = Lua.StructMeta{
     .name = "lua-config",
     .fields = &.{
+        Lua.StructMeta.property("fs"),
         Lua.StructMeta.method(&execute, "execute"),
     },
     .meta_fields = &.{
@@ -19,15 +20,10 @@ pub const __luaMeta = Lua.StructMeta{
     },
 };
 
+fs: @import("fs.zig") = .{},
+
 pub fn deinit(_: *LuaConfig) void {
-    switch (builtin.mode) {
-        .Debug,
-        .ReleaseSafe,
-        => {
-            _ = @import("allocator.zig").gpa.deinit();
-        },
-        else => {},
-    }
+    _ = @import("allocator.zig").gpa.deinit();
 }
 
 pub fn execute(state: Lua.ThisState, path: []const u8, tbl: Lua.Ref.Table) !Lua.ReturnStackValues {
@@ -41,11 +37,12 @@ pub fn execute(state: Lua.ThisState, path: []const u8, tbl: Lua.Ref.Table) !Lua.
     }
 
     var instance = Execute.init(allocator, argv);
+    errdefer instance.deinit();
     if (instance.start()) |err_msg| {
-        Lua.push(state.lua, err_msg);
+        state.push(.{ null, err_msg });
         return .extra;
     }
 
-    Lua.push(state.lua, instance);
+    state.push(instance);
     return .extra;
 }

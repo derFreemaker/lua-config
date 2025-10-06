@@ -68,7 +68,7 @@ function lock:free() end
 ---@param path string
 ---@param seconds_stale integer | nil
 ---@return lfs.lock | nil lock
----@return string err_msg
+---@return string | nil err_msg
 function lfs.lock_dir(path, seconds_stale) end
 
 --- Returns a string with the current working directory or nil plus an error string.
