@@ -5,6 +5,8 @@ const Lua = @import("common/lua.zig");
 
 const allocator = @import("allocator.zig").gpa.allocator();
 
+const Fs = @This();
+
 pub const __luaMeta = Lua.StructMeta{
     .name = "lua-config.fs",
     .fields = &.{
@@ -18,7 +20,9 @@ pub const __luaMeta = Lua.StructMeta{
     },
 };
 
-const Fs = @This();
+pub fn init() Fs {
+    return Fs{};
+}
 
 pub fn ch_dir(path: [:0]const u8) bool {
     const real_path = std.fs.cwd().realpathAlloc(allocator, path) catch {

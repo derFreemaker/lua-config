@@ -9,7 +9,7 @@ const LuaConfig = @import("lua-config.zig");
 pub fn luaopen(lua: *zlua.Lua) i32 {
     lua.pop(2); // pop require('name') and module path
 
-    Lua.push(lua, LuaConfig{});
+    Lua.push(lua, LuaConfig.init());
     return 1;
 }
 

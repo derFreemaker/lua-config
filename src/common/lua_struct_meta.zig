@@ -58,12 +58,12 @@ pub const LuaFieldMeta = union(enum) {
         };
     }
 
-    pub fn push(comptime self: *const LuaFieldMeta, lua: *zlua.Lua, comptime T: type, struct_ptr: anytype) void {
+    pub fn get(comptime self: *const LuaFieldMeta, lua: *zlua.Lua, comptime T: type, struct_ptr: anytype) void {
         switch (self.*) {
             .property => |p| {
                 const FieldT: type = @FieldType(T, p.name);
                 if (comptime Lua.itemLen(FieldT) > 1) {
-                    @compileError(std.fmt.comptimePrint("multiple values not supported: '{s}' (T: {s})", .{ p.name, @typeName(T) }));
+                    @compileError(std.fmt.comptimePrint("properties do not support multiple values: '{s}' (T: {s})", .{ p.name, @typeName(T) }));
                 }
 
                 const value = switch (@typeInfo(FieldT)) {
@@ -80,7 +80,7 @@ pub const LuaFieldMeta = union(enum) {
                 switch (m.type) {
                     .method => Lua.push(lua, Lua.wrap(@as(m.ptr_type, @ptrCast(@alignCast(m.ptr))).*)),
                     .getter => {
-                        Lua.wrap(@as(m.ptr_type, @ptrCast(@alignCast(m.ptr))).*)(@ptrCast(lua));
+                        _ = Lua.wrap(@as(m.ptr_type, @ptrCast(@alignCast(m.ptr))).*)(@ptrCast(lua));
                     },
                     .setter => lua.pushNil(),
                 }
@@ -159,6 +159,10 @@ pub const LuaFieldMeta = union(enum) {
     }
 };
 
+pub fn property(name: [:0]const u8) LuaFieldMeta {
+    return LuaFieldMeta.initProperty(name, name);
+}
+
 pub fn method(func: anytype, lua_name: [:0]const u8) LuaFieldMeta {
     if (@typeInfo(@TypeOf(func)) != .pointer) {
         @compileError("expected pointer to function");
@@ -167,8 +171,26 @@ pub fn method(func: anytype, lua_name: [:0]const u8) LuaFieldMeta {
     return LuaFieldMeta.initMethod(func, lua_name);
 }
 
-pub fn property(name: [:0]const u8) LuaFieldMeta {
-    return LuaFieldMeta.initProperty(name, name);
+pub fn getter(func: anytype, lua_name: [:0]const u8) LuaFieldMeta {
+    if (@typeInfo(@TypeOf(func)) != .pointer) {
+        @compileError("expected pointer to function");
+    }
+
+    var m = LuaFieldMeta.initMethod(func, lua_name);
+    m.method.type = .getter;
+
+    return m;
+}
+
+pub fn setter(func: anytype, lua_name: [:0]const u8) LuaFieldMeta {
+    if (@typeInfo(@TypeOf(func)) != .pointer) {
+        @compileError("expected pointer to function");
+    }
+
+    var m = LuaFieldMeta.initMethod(func, lua_name);
+    m.method.type = .setter;
+
+    return m;
 }
 
 const LuaStructMeta = @This();

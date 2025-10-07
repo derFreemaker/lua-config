@@ -382,7 +382,7 @@ pub const Userdata = struct {
                                 }
 
                                 if (std.mem.eql(u8, field.luaName(), field_name)) {
-                                    field.push(L, ST, struct_ptr);
+                                    field.get(L, ST, struct_ptr);
                                     return 1;
                                 }
                             }
@@ -452,7 +452,7 @@ pub const Userdata = struct {
                             }
                         }
 
-                        field.push(lua, T, value);
+                        field.get(lua, T, value);
                         lua.setField(-2, field.luaName());
                     }
                 }
@@ -495,21 +495,56 @@ pub const Userdata = struct {
             lua.typeError(index, getLuaName(T));
         }
 
+        if (!getNameFromLua(lua, index)) {
+            lua.argError(index, "unable to get userdata name");
+        }
+        const userdata_name = lua.toString(-1) catch unreachable;
+        defer lua.pop(1);
+
+        const struct_name = Lua.getLuaName(T);
+        if (std.mem.eql(u8, struct_name, userdata_name)) {
+            const userdata = lua.toUserdata(T, index) catch unreachable;
+            return userdata.*;
+        }
+
         switch (@typeInfo(T)) {
+            .pointer => |p| {
+                if (comptime !p.is_const) {
+                    if (comptime struct_name.len > 1) {
+                        if (std.mem.eql(u8, struct_name[1..], userdata_name)) {
+                            return lua.toUserdata(p.child, index) catch unreachable;
+                        }
+                    }
+                } else {
+                    if (comptime struct_name.len > 7) {
+                        if (std.mem.eql(u8, struct_name[7..], userdata_name)) {
+                            return lua.toUserdata(p.child, index) catch unreachable;
+                        }
+
+                        if (std.mem.eql(u8, "*" ++ struct_name[7..], userdata_name)) {
+                            const userdata = lua.toUserdata(T, index) catch unreachable;
+                            return userdata.*;
+                        }
+                    }
+                }
+            },
             .@"struct",
             .@"union",
             => {
-                return (lua.toUserdata(T, index) catch unreachable).*;
-            },
-            .pointer => |p| {
-                if (@typeInfo(p.child) != .@"struct") {
-                    @compileError("can not get a pointer which doesn't directly point at a struct: " ++ @typeName(T) ++ " use 'Lua.check()'");
+                if (std.mem.eql(u8, "*" ++ struct_name, userdata_name)) {
+                    const userdata = lua.toUserdata(*T, index) catch unreachable;
+                    return userdata.*.*;
                 }
-
-                return lua.toUserdata(p.child, index) catch unreachable;
+                
+                if (std.mem.eql(u8, "*const " ++ struct_name, userdata_name)) {
+                    const userdata = lua.toUserdata(*const T, index) catch unreachable;
+                    return userdata.*.*;
+                }
             },
             else => @compileError(std.fmt.comptimePrint("not supported (T: {s})", .{@typeName(T)})),
         }
+
+        lua.typeError(index, struct_name);
     }
 
     pub fn push(lua: *zlua.Lua, value: anytype) void {
@@ -875,10 +910,6 @@ pub fn push(lua: *zlua.Lua, value: anytype) void {
             }
 
             if (comptime isStringType(T)) {
-                if (p.sentinel()) |_| {
-                    _ = lua.pushStringZ(value);
-                    return;
-                }
                 _ = lua.pushString(value);
                 return;
             }
@@ -939,6 +970,10 @@ pub const ReturnStackValues = struct {
             .amount = amount,
         } };
     }
+
+    pub const none = ReturnStackValues{
+        .mode = .{ .amount = 0 },
+    };
 
     /// all extra stack values which were added during the function execution
     pub const extra = ReturnStackValues{
