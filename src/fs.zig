@@ -8,40 +8,16 @@ const allocator = @import("allocator.zig").gpa.allocator();
 pub const __luaMeta = Lua.StructMeta{
     .name = "lua-config.fs",
     .fields = &.{
-        Lua.StructMeta.method(&exists, "exists"),
         Lua.StructMeta.method(&ch_dir, "chdir"),
         Lua.StructMeta.method(&current_dir, "currentdir"),
+        Lua.StructMeta.method(&exists, "exists"),
         Lua.StructMeta.method(&children, "dir"),
+        Lua.StructMeta.method(&mkdir, "mkdir"),
+        Lua.StructMeta.method(&rmdir, "rmdir"),
     },
 };
 
 const Fs = @This();
-
-pub fn exists(path: [:0]const u8) bool {
-    const absolute_path = std.fs.cwd().realpathAlloc(allocator, path) catch {
-        return false;
-    };
-    defer allocator.free(absolute_path);
-
-    std.fs.accessAbsolute(absolute_path, .{}) catch |err| switch (err) {
-        error.FileNotFound,
-        error.NameTooLong,
-        error.BadPathName,
-        error.SymLinkLoop,
-        error.InvalidUtf8,
-        error.InvalidWtf8,
-        error.Unexpected,
-        => {
-            return false;
-        },
-
-        else => {
-            return true;
-        },
-    };
-
-    return true;
-}
 
 pub fn ch_dir(path: [:0]const u8) bool {
     const real_path = std.fs.cwd().realpathAlloc(allocator, path) catch {
@@ -109,6 +85,32 @@ pub const DirIterator = struct {
     }
 };
 
+pub fn exists(path: [:0]const u8) bool {
+    const absolute_path = std.fs.cwd().realpathAlloc(allocator, path) catch {
+        return false;
+    };
+    defer allocator.free(absolute_path);
+
+    std.fs.accessAbsolute(absolute_path, .{}) catch |err| switch (err) {
+        error.FileNotFound,
+        error.NameTooLong,
+        error.BadPathName,
+        error.SymLinkLoop,
+        error.InvalidUtf8,
+        error.InvalidWtf8,
+        error.Unexpected,
+        => {
+            return false;
+        },
+
+        else => {
+            return true;
+        },
+    };
+
+    return true;
+}
+
 pub fn children(state: Lua.ThisState, path: [:0]const u8) Lua.ReturnStackValues {
     const real_path = std.fs.cwd().realpathAlloc(allocator, path) catch {
         state.push(null);
@@ -134,4 +136,39 @@ pub fn children(state: Lua.ThisState, path: [:0]const u8) Lua.ReturnStackValues 
     }.func), 1);
     state.lua.insert(state.lua.absIndex(-2));
     return .extra;
+}
+
+pub fn mkdir(path: [:0]const u8) bool {
+    const real_path = blk: {
+        if (std.fs.path.isAbsoluteZ(path)) {
+            break :blk path;
+        }
+
+        const cwd = std.fs.cwd().realpathAlloc(allocator, ".") catch {
+            return false;
+        };
+        defer allocator.free(cwd);
+
+        break :blk std.fs.path.join(allocator, &.{ cwd, path }) catch {
+            return false;
+        };
+    };
+    defer if (!std.fs.path.isAbsoluteWindowsZ(path)) allocator.free(real_path);
+
+    std.fs.makeDirAbsolute(real_path) catch {
+        return false;
+    };
+    return true;
+}
+
+pub fn rmdir(path: [:0]const u8) bool {
+    const real_path = std.fs.cwd().realpathAlloc(allocator, path) catch {
+        return false;
+    };
+    defer allocator.free(real_path);
+
+    std.fs.deleteDirAbsolute(real_path) catch {
+        return false;
+    };
+    return true;
 }

@@ -34,4 +34,7 @@ for file in lua_config.fs.dir("src") do
     print(file)
 end
 
+print(lua_config.fs.mkdir("test-dir"))
+print(lua_config.fs.rmdir("test-dir"))
+
 print("$END$")
