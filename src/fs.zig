@@ -14,6 +14,7 @@ pub const __luaMeta = Lua.StructMeta{
         Lua.StructMeta.method(&children, "dir"),
         Lua.StructMeta.method(&mkdir, "mkdir"),
         Lua.StructMeta.method(&rmdir, "rmdir"),
+        Lua.StructMeta.method(&create_symlink, "create_symlink"),
     },
 };
 
@@ -168,6 +169,34 @@ pub fn rmdir(path: [:0]const u8) bool {
     defer allocator.free(real_path);
 
     std.fs.deleteDirAbsolute(real_path) catch {
+        return false;
+    };
+    return true;
+}
+
+pub fn create_symlink(path: [:0]const u8, target: [:0]const u8, is_directory: bool) bool {
+    const real_path = blk: {
+        if (std.fs.path.isAbsoluteZ(path)) {
+            break :blk path;
+        }
+
+        const cwd = std.fs.cwd().realpathAlloc(allocator, ".") catch {
+            return false;
+        };
+        defer allocator.free(cwd);
+
+        break :blk std.fs.path.join(allocator, &.{ cwd, path }) catch {
+            return false;
+        };
+    };
+    defer if (!std.fs.path.isAbsoluteWindowsZ(path)) allocator.free(real_path);
+
+    const real_target = std.fs.cwd().realpathAlloc(allocator, target) catch {
+        return false;
+    };
+    defer allocator.free(real_target);
+
+    std.fs.symLinkAbsolute(real_target, real_path, .{ .is_directory = is_directory }) catch {
         return false;
     };
     return true;
