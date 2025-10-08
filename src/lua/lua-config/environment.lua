@@ -52,11 +52,15 @@ function _env.start_execute(command, direct)
     end
 
     local handle, err_msg
-    command = command:gsub("\\", "\\\\"):gsub("\"", "\\\"")
+    command = command
+        :gsub([[\"]], [[\\"]])
+        :gsub([["]], [[\"]])
     if _env.is_windows then
-        handle, err_msg = io.popen("powershell -NoProfile -Command \"" .. command .. "\"")
+        command = "powershell -NoProfile -Command \"" .. command .. "\""
+        handle, err_msg = io.popen(command)
     else
-        handle, err_msg = io.popen("/bin/bash --noprofile --norc -c \"" .. command .. "\"")
+        command = "/bin/bash --noprofile --norc -c \"" .. command .. "\""
+        handle, err_msg = io.popen(command)
     end
 
     if not handle then
