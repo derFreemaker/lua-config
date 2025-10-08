@@ -8,6 +8,7 @@ local lua_config_dir, args = sepperate_args(...)
 if not lua_config_dir then
     error("no lua_config_dir provided as first argument (is the root directory of lua-config)")
 end
+__lua_config_dir = lua_config_dir
 
 lua_config_dir = lua_config_dir:gsub("\\", "/")
 if lua_config_dir:sub(lua_config_dir:len()) ~= "/" then
@@ -51,6 +52,11 @@ setup_path(lua_config_dir, "src/lua/")
 local lfs_status, lfs = pcall(require, "lua-config.third-party.lfs")
 if not lfs_status then
     error("failed to load LuaFileSystem library:\n" .. lfs)
+end
+
+local lib_status, lib = pcall(require, "lua-config.lib.lua_config")
+if not lib_status then
+    error("failed to load lua-config library:\n" .. lib)
 end
 
 local argparse = require("lua-config.third-party.argparse")

@@ -27,6 +27,8 @@ pub fn init(allocator: std.mem.Allocator, argv: [][]const u8) Execute {
 }
 
 pub fn deinit(self: *Execute) void {
+    _ = self.child.kill() catch {};
+
     for (self.child.argv) |arg| {
         self.child.allocator.free(arg);
     }
