@@ -35,7 +35,7 @@ fn getOS() [:0]const u8 {
     return @tagName(builtin.os.tag);
 }
 
-extern "shell32" fn IsUserAnAdmin() callconv(.x86_stdcall) std.os.windows.BOOL;
+extern "shell32" fn IsUserAnAdmin() callconv(.winapi) std.os.windows.BOOL;
 fn checkElevated() bool {
     if (comptime builtin.os.tag == .windows) {
         return IsUserAnAdmin() != 0;
@@ -79,14 +79,14 @@ extern fn unsetenv(name: [*:0]const u8) callconv(.c) i32;
 
 pub fn set(name: [:0]const u8, value: ?[:0]const u8) bool {
     if (comptime builtin.os.tag == .windows) {
-        const name_w = std.unicode.utf8ToUtf16LeAlloc(allocator, name) catch {
+        const name_w = std.unicode.utf8ToUtf16LeAllocZ(allocator, name) catch {
             return false;
         };
         defer allocator.free(name_w);
-
+        
         if (value == null) {
             const result = SetEnvironmentVariableW(name_w.ptr, null);
-            if (result != std.os.windows.TRUE) {
+            if (result != .SUCCESS) {
                 return false;
             }
 
@@ -99,7 +99,7 @@ pub fn set(name: [:0]const u8, value: ?[:0]const u8) bool {
         defer allocator.free(value_w);
 
         const result = SetEnvironmentVariableW(name_w.ptr, value_w.ptr);
-        if (result != std.os.windows.TRUE) {
+        if (result != .SUCCESS) {
             return false;
         }
 
