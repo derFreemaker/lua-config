@@ -62,6 +62,8 @@ end
 local argparse = require("lua-config.third-party.argparse")
 
 ---@class lua-config
+---@field fs lua-config.lib.fs
+---
 ---@field root_path string
 ---
 ---@field args_parser argparse.Parser
@@ -71,11 +73,14 @@ local argparse = require("lua-config.third-party.argparse")
 ---@field path lua-config.path
 ---@field registry lua-config.registry
 config = {
+    fs = lib.fs,
+
     root_path = parent_dir,
 
     args_parser = argparse("lua-config", "configuration loader in lua"),
     args = args,
 }
+setmetatable(config, { __lib = lib }) -- keep 'lib' alive
 local parsed = false
 function config.parse_args()
     if parsed then
@@ -91,16 +96,16 @@ config.env = require("lua-config.environment")
 config.path = require("lua-config.path")
 config.registry = require("lua-config.registry")
 
-local call_dir = lfs.currentdir()
+local call_dir = config.fs.currentdir()
 if not call_dir then
     error("unable to get current dir")
 end
 -- change to parent directory of lua config dir
-lfs.chdir(config.root_path)
+config.fs.chdir(config.root_path)
 setup_path(config.root_path)
 
 local entry_file_path = config.root_path .. "init.lua"
-if not lfs.exists(entry_file_path) then
+if not config.fs.exists(entry_file_path) then
     error("no entry file found: " .. entry_file_path)
 end
 
@@ -116,4 +121,4 @@ if not success then
 end
 
 -- change back to original working directory
-lfs.chdir(call_dir)
+config.fs.chdir(call_dir)
