@@ -54,7 +54,7 @@ if not lfs_status then
     error("failed to load LuaFileSystem library:\n" .. lfs)
 end
 
-local lib_status, lib = pcall(require, "lua-config.lib.lua_config")
+local lib_status, lib = pcall(require, "lua-config.lib.lua-config")
 if not lib_status then
     error("failed to load lua-config library:\n" .. lib)
 end
