@@ -1,5 +1,3 @@
-local lfs = require("lua-config.third-party.lfs")
-
 ---@class lua-config.path
 local _path = {}
 
@@ -29,7 +27,9 @@ function _path.add_hostname_if_found(path)
     end
 
     local hostname_path = path .. config.env.hostname
-    if lfs.exists(hostname_path) and lfs.attributes(hostname_path).mode == "directory" then
+    if config.fs.exists(hostname_path) then
+        --//TODO: maybe check if it's a directory
+        -- and config.fs.attributes(hostname_path).mode == "directory"
         return hostname_path
     end
 
