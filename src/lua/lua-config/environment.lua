@@ -16,20 +16,29 @@ local set_machine_template =
 local delete_machine_template =
 "$e = [Microsoft.Win32.Registry]::LocalMachine.OpenSubKey(\"SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment\", $true); Write-Output $e.DeleteValue(\"%s\"); $e.Close()"
 
----@alias lua-config.environment.variable.scope
----| "user"
----| "machine"
+---@enum lua-config.environment.variable.scope
+local Scope = {
+    process = 1,
+    user = 2,
+    machine = 3,
+}
+
+---@type lua-config.lib
+---@diagnostic disable-next-line: assign-type-mismatch
+local lib = getmetatable(config).__lib
+local env_lib = lib.env
 
 ---@class lua-config.environment
----@field package cache table<string, table<"all" | lua-config.environment.variable.scope, string>>
+---@field package cache table<string, table<lua-config.environment.variable.scope, string>>
 ---
 ---@field os "windows" | "unix"
 ---@field is_windows boolean
----@field is_admin boolean
+---@field is_root boolean
 ---
 ---@field hostname string
 local _env = {
     cache = {},
+    scope = Scope,
 }
 
 ---@class lua-config.execution
@@ -105,12 +114,12 @@ end
 _env.is_windows = _env.os == "windows"
 
 if _env.os == "windows" then
-    _env.is_admin = _env.execute("net session 2>&1")
+    _env.is_root = _env.execute("net session 2>&1")
 else
-    _env.is_admin = _env.execute("sudo -n true 2>&1")
+    _env.is_root = _env.execute("sudo -n true 2>&1")
 end
 function _env.check_admin()
-    if _env.is_admin then
+    if _env.is_root then
         return
     end
 
@@ -121,26 +130,21 @@ end
 if _env.is_windows then
     _env.hostname = org_getenv("COMPUTERNAME"):lower()
 else
-    local handle = io.popen("/bin/hostname", "r")
-    if not handle then
+    local success, _, hostname = _env.execute("cat /etc/hostname")
+    if not success then
         error("unable to get hostname!")
     end
 
-    _env.hostname = handle:read("a")
-    handle:close()
+    _env.hostname = hostname:gsub("\n", "")
 end
 
 --- With 'nil' scope will return all data from user and machine
 ---@param name string
----@param scope lua-config.environment.variable.scope | "all" | nil
+---@param scope lua-config.environment.variable.scope | nil
 ---@param ignore_cache boolean?
 ---@return string
 function _env.get(name, scope, ignore_cache)
-    if not _env.is_windows then
-        error("'_env.get' is windows only")
-    end
-
-    scope = scope or "all"
+    scope = scope or Scope.process
     ---@cast scope -string
 
     if not ignore_cache then
@@ -152,22 +156,32 @@ function _env.get(name, scope, ignore_cache)
 
     ---@type string | nil
     local value
-    if scope == "all" then
+    if scope >= Scope.process then
         value = org_getenv(name)
-    elseif scope == "user" then
+    end
+
+    if scope >= Scope.user then
+        if not _env.is_windows then
+            error("not implemented")
+        end
+
         local success, _, result = _env.execute(get_user_template:format(name))
         if not success then
             error("unable to get env variable:\n" .. result)
         end
         value = result
-    elseif scope == "machine" then
+    end
+
+    if scope >= Scope.machine then
+        if not _env.is_windows then
+            error("not implemented")
+        end
+
         local success, _, result = _env.execute(get_machine_template:format(name))
         if not success then
             error("unable to get env variable:\n" .. result)
         end
         value = result
-    else
-        error("invalid scope '" .. scope .. "'")
     end
     value = value or ""
 
@@ -189,11 +203,15 @@ end
 ---@param scope lua-config.environment.variable.scope
 ---@return boolean
 function _env.set(name, value, scope)
-    if not _env.is_windows then
-        error("'env.set(...)' is windows only")
+    if scope >= Scope.process then
+        env_lib.set(name, value)
     end
 
-    if scope == "user" then
+    if scope >= Scope.user then
+        if not _env.is_windows then
+            error("not implemented")
+        end
+
         local command
         if value == nil then
             command = delete_user_template:format(name)
@@ -206,8 +224,14 @@ function _env.set(name, value, scope)
             print(code, output)
             return false
         end
-    elseif scope == "machine" then
-        if not _env.is_admin then
+    end
+
+    if scope >= Scope.machine then
+        if not _env.is_windows then
+            error("not implemented")
+        end
+
+        if not _env.is_root then
             error("unable to set machine environment variables without elevated privileges")
         end
 
@@ -237,10 +261,6 @@ end
 ---@param scope lua-config.environment.variable.scope
 ---@return boolean
 function _env.unset(name, scope)
-    if not _env.is_windows then
-        error("'env.remove(...)' is windows only")
-    end
-
     if not _env.set(name, nil, scope) then
         return false
     end
@@ -255,11 +275,7 @@ end
 ---@param sep string | nil
 ---@return boolean
 function _env.add(name, value, scope, before, sep)
-    if not _env.is_windows then
-        error("'env.add(...)' is windows only")
-    end
     sep = sep or ";"
-
 
     local items = utils.string.split(_env.get(name, scope) or "", sep)
     for i, item in ipairs(items) do
@@ -286,9 +302,6 @@ end
 ---@param sep string | nil
 ---@return boolean
 function _env.remove(name, value, scope, sep)
-    if not _env.is_windows then
-        error("'env.remove(...)' is windows only")
-    end
     sep = sep or ";"
 
     local items = utils.string.split(_env.get(name, scope) or "")
@@ -324,11 +337,7 @@ end
 ---@return string?
 ---@diagnostic disable-next-line: duplicate-set-field
 os.getenv = function(varname)
-    if _env.is_windows then
-        return _env.get(varname)
-    else
-        return org_getenv(varname)
-    end
+    return _env.get(varname)
 end
 
 return _env

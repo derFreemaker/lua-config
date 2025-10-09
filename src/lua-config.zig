@@ -35,7 +35,8 @@ pub fn init() LuaConfig {
 }
 
 pub fn deinit(_: *LuaConfig) void {
-    _ = @import("allocator.zig").gpa.deinit();
+    var gpa = @import("allocator.zig").gpa;
+    _ = gpa.deinit();
 }
 
 pub fn execute(state: Lua.ThisState, path: []const u8, tbl: Lua.Ref.Table) !Lua.ReturnStackValues {

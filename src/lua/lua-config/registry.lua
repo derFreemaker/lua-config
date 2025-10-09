@@ -47,7 +47,7 @@ local function check_windows()
         error("registry can only be changed on windows")
     end
 
-    if not config.env.is_admin then
+    if not config.env.is_root then
         --//TODO: maybe look for 'HKCU' since that doesn't need admin privileges for most things
         error("you need admin privileges to change the registry")
     end

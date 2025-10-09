@@ -1,13 +1,12 @@
 {
-    "$schema": "https://raw.githubusercontent.com/LuaLS/vscode-lua/master/setting/schema.json",
-    "runtime.version": "Lua 5.3",
-    "workspace.ignoreDir": [
-        ".vscode",
-        "bin"
-    ],
-    "runtime.path": [
-        "src/lua/?.lua",
-        "lib/?.so"
-    ]
+  "$schema": "https://raw.githubusercontent.com/LuaLS/vscode-lua/master/setting/schema.json",
+  "runtime.version": "Lua 5.3",
+  "workspace.ignoreDir": [".vscode", "bin"],
+  "runtime.path": ["src/lua/?.lua", "lib/?.so"],
+  "workspace.library": [
+    "${addons}/busted/module/library",
+    "${addons}/luassert/module/library",
+    "${addons}/luafilesystem/module/library"
+  ],
+  "workspace.checkThirdParty": false
 }
-  

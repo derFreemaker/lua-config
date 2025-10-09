@@ -8,12 +8,13 @@ local lua_config_dir, args = sepperate_args(...)
 if not lua_config_dir then
     error("no lua_config_dir provided as first argument (is the root directory of lua-config)")
 end
-__lua_config_dir = lua_config_dir
 
 lua_config_dir = lua_config_dir:gsub("\\", "/")
 if lua_config_dir:sub(lua_config_dir:len()) ~= "/" then
     lua_config_dir = lua_config_dir .. "/"
 end
+---@diagnostic disable-next-line: lowercase-global
+__lua_config_dir = lua_config_dir
 
 ---@param path string
 ---@return string
@@ -74,7 +75,7 @@ config = {
     args_parser = argparse("lua-config", "configuration loader in lua"),
     args = args,
 }
-setmetatable(config, { __lib = lib }) -- keep 'lib' alive
+setmetatable(config, { __lib = lib }) -- keep 'lib' alive and accessable
 local parsed = false
 function config.parse_args()
     if parsed then
@@ -98,7 +99,7 @@ end
 config.fs.chdir(config.root_path)
 setup_path(config.root_path)
 
-local entry_file_path = config.root_path .. "init.lua"
+local entry_file_path = "init.lua"
 if not config.fs.exists(entry_file_path) then
     error("no entry file found: " .. entry_file_path)
 end

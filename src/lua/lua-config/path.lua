@@ -43,7 +43,7 @@ end
 function _path.create_symlink(path, target)
     local command
     if config.env.is_windows then
-        if not config.env.is_admin then
+        if not config.env.is_root then
             return false
         end
 

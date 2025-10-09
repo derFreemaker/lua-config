@@ -86,7 +86,7 @@ function Env.get(name)
 end
 
 ---@param name string
----@param value string
+---@param value string?
 ---@return boolean
 function Env.set(name, value)
 end
