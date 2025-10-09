@@ -6,7 +6,7 @@ local lfs = require("lfs")
 ---@type luassert
 local las = require("luassert")
 
-local test_dir = debug.getinfo(1, "S").source:sub(2):match("^(.+/)[^/]+$")
+local test_dir = debug.getinfo(1, "S").source:gsub("\\", "/"):sub(2):match("^(.+/)[^/]+$")
 
 context("general", function()
     lazy_setup(function()

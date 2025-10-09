@@ -25,6 +25,22 @@ context("fs", function()
         end
     end)
 
+    teardown(function()
+        if lfs.attributes(mkdir_path) then
+            las.is_true(lfs.rmdir(mkdir_path))
+        end
+        if lfs.attributes(symlink_file_path) then
+            las.is_true(os.remove(symlink_file_path))
+        end
+        if lfs.attributes(symlink_dir_path) then
+            if setup.get_os() == "windows" then
+                las.is_true(os.execute("rmdir " .. symlink_dir_path:gsub("/", "\\")))
+            else
+                las.is_true(os.remove(symlink_dir_path))
+            end
+        end
+    end)
+
     test("chdir", function()
         local start_dir = lfs.currentdir()
         las.is_true(config.fs.chdir("tests/fs_tests"))
@@ -65,22 +81,14 @@ context("fs", function()
     end)
 
     test("create_symlink", function()
+        if setup.get_os() == "windows" and not config.env.is_root then
+            error("can only be done with elevated privileges on windows")
+        end
+
         las.is_true(config.fs.create_symlink(symlink_file_path, symlink_file_target, false))
         las.is_not_nil(lfs.attributes(symlink_file_path))
 
         las.is_true(config.fs.create_symlink(symlink_dir_path, symlink_dir_target, true))
         las.is_not_nil(lfs.attributes(symlink_dir_file_check))
-    end)
-
-    teardown(function()
-        if lfs.attributes(mkdir_path) then
-            las.is_true(lfs.rmdir(mkdir_path))
-        end
-        if lfs.attributes(symlink_file_path) then
-            las.is_true(os.remove(symlink_file_path))
-        end
-        if lfs.attributes(symlink_dir_path) then
-            las.is_true(os.remove(symlink_dir_path))
-        end
     end)
 end)

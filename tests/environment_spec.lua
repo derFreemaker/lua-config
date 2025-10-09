@@ -6,7 +6,9 @@ local lfs = require("lfs")
 ---@type luassert
 local las = require("luassert")
 
-local org_getenv = os.getenv
+local org_getenv = function(varname)
+    return os.getenv(varname) or nil
+end
 
 context("environment", function()
     lazy_setup(function()

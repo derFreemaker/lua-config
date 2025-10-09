@@ -128,7 +128,7 @@ function _env.check_admin()
 end
 
 if _env.is_windows then
-    _env.hostname = org_getenv("COMPUTERNAME"):lower()
+    _env.hostname = org_getenv("COMPUTERNAME") or "unknown"
 else
     local success, _, hostname = _env.execute("cat /etc/hostname")
     if not success then

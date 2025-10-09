@@ -4,9 +4,10 @@
   "workspace.ignoreDir": [".vscode", "bin"],
   "runtime.path": ["src/lua/?.lua", "lib/?.so"],
   "workspace.library": [
-    "${addons}/busted/module/library",
-    "${addons}/luassert/module/library",
-    "${addons}/luafilesystem/module/library"
-  ],
+        "${addons}/busted/module/library",
+        "${3rd}/luassert/library",
+        "${addons}/luassert/module/library",
+        "${addons}/luafilesystem/module/library"
+    ],
   "workspace.checkThirdParty": false
 }

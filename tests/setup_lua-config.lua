@@ -7,7 +7,7 @@ local function get_os()
     end
 end
 
-local tests_dir = debug.getinfo(1, "S").source:sub(4):match("^(.+)/[^/]+$")
+local tests_dir = debug.getinfo(1, "S").source:gsub("\\", "/"):sub(4):match("^(.+)/[^/]+$")
 
 ---@type LuaFileSystem
 local lfs = require("lfs")

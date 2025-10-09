@@ -49,6 +49,7 @@ local function setup_path(path, package_path, package_cpath)
 end
 setup_path(lua_config_dir, "src/lua/")
 
+
 local lib_status, lib = pcall(require, "lua-config.lib.lua-config")
 if not lib_status then
     error("failed to load lua-config library:\n" .. lib)
