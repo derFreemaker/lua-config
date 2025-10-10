@@ -32,7 +32,11 @@ context("general", function()
         end
 
         -- echo should append a new line when writing to stdout
-        local expected = msg .. "\n"
+        local expected = msg
+        if system.windows then
+            expected = expected .. "\r"
+        end
+        expected = expected .. "\n"
 
         local result = config.env.start_execute(path, args):wait()
         las.is_true(result.success)
