@@ -9,10 +9,9 @@ const LuaConfig = @import("lua-config.zig");
 
 pub fn luaopen(lua: *zlua.Lua) i32 {
     Lua.push(lua, Allocator.init());
-    lua.setField(zlua.registry_index, "lua-config_allocator");
-    _ = lua.getField(zlua.registry_index, "lua-config_allocator");
     const allocator = (Lua.get(lua, *Allocator, -1) catch unreachable).value;
-
+    _ = lua.ref(zlua.registry_index) catch @panic("OOM");
+    
     Lua.push(lua, LuaConfig.init(allocator.allocator()));
     return 1;
 }
