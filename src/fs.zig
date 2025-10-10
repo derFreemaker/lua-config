@@ -1,4 +1,5 @@
 const std = @import("std");
+const builtin = @import("builtin");
 const zlua = @import("zlua");
 
 const Lua = @import("common/lua.zig");
@@ -8,6 +9,8 @@ const Fs = @This();
 pub const __luaMeta = Lua.StructMeta{
     .name = "lua-config.fs",
     .fields = &.{
+        Lua.StructMeta.method(&attributes, "attributes"),
+        Lua.StructMeta.method(&link_attributes, "link_attributes"),
         Lua.StructMeta.method(&ch_dir, "chdir"),
         Lua.StructMeta.method(&current_dir, "currentdir"),
         Lua.StructMeta.method(&exists, "exists"),
@@ -54,13 +57,117 @@ pub fn current_dir(self: *Fs, state: Lua.ThisState) Lua.ReturnStackValues {
     return .extra;
 }
 
+pub fn attributes(self: *Fs, path: [:0]const u8, state: Lua.ThisState) Lua.ReturnStackValues {
+    const real_path = std.fs.cwd().realpathAlloc(self.allocator, path) catch {
+        return .none;
+    };
+    defer self.allocator.free(real_path);
+
+    const file = std.fs.openFileAbsolute(real_path, .{}) catch {
+        return .none;
+    };
+    const stat = file.stat() catch {
+        return .none;
+    };
+
+    state.lua.createTable(0, 7);
+
+    state.push(stat.inode);
+    state.lua.setField(-2, "inode");
+
+    state.push(stat.size);
+    state.lua.setField(-2, "size");
+
+    state.push(stat.mode);
+    state.lua.setField(-2, "mode");
+
+    state.push(@tagName(stat.kind));
+    state.lua.setField(-2, "kind");
+
+    state.push(@divTrunc(stat.atime, std.time.ns_per_ms));
+    state.lua.setField(-2, "access_time");
+
+    state.push(@divTrunc(stat.mtime, std.time.ns_per_ms));
+    state.lua.setField(-2, "modified_time");
+
+    state.push(@divTrunc(stat.ctime, std.time.ns_per_ms));
+    state.lua.setField(-2, "created_time");
+
+    return .extra;
+}
+
+pub fn link_attributes(self: *Fs, path: [:0]const u8, state: Lua.ThisState) Lua.ReturnStackValues {
+    const raw_path = blk: {
+        if (std.fs.path.isAbsoluteZ(path)) {
+            break :blk path;
+        }
+
+        const cwd = std.fs.cwd().realpathAlloc(self.allocator, ".") catch {
+            return .none;
+        };
+        defer self.allocator.free(cwd);
+
+        break :blk std.fs.path.join(self.allocator, &.{ cwd, path }) catch {
+            return .none;
+        };
+    };
+    defer if (!std.fs.path.isAbsoluteZ(path)) self.allocator.free(raw_path);
+
+    const dir_path = std.fs.path.dirname(raw_path) orelse ".";
+    var dir = std.fs.openDirAbsolute(dir_path, .{}) catch {
+        return .none;
+    };
+    defer dir.close();
+
+    const file_name = std.fs.path.basename(raw_path);
+    const file = dir.openFile(file_name, .{}) catch {
+        return .none;
+    };
+    const stat = file.stat() catch {
+        return .none;
+    };
+
+    state.lua.createTable(0, 8);
+
+    state.push(stat.inode);
+    state.lua.setField(-2, "inode");
+
+    state.push(stat.size);
+    state.lua.setField(-2, "size");
+
+    state.push(stat.mode);
+    state.lua.setField(-2, "mode");
+
+    state.push(@tagName(stat.kind));
+    state.lua.setField(-2, "kind");
+
+    state.push(@divTrunc(stat.atime, std.time.ns_per_ms));
+    state.lua.setField(-2, "access_time");
+
+    state.push(@divTrunc(stat.mtime, std.time.ns_per_ms));
+    state.lua.setField(-2, "modified_time");
+
+    state.push(@divTrunc(stat.ctime, std.time.ns_per_ms));
+    state.lua.setField(-2, "created_time");
+
+    var buf: [std.fs.max_path_bytes]u8 = undefined;
+    const target = dir.readLink(file_name, &buf) catch {
+        return .none;
+    };
+
+    state.push(target);
+    state.lua.setField(-2, "target");
+
+    return .extra;
+}
+
 pub fn exists(self: *Fs, path: [:0]const u8) bool {
-    const absolute_path = std.fs.cwd().realpathAlloc(self.allocator, path) catch {
+    const real_path = std.fs.cwd().realpathAlloc(self.allocator, path) catch {
         return false;
     };
-    defer self.allocator.free(absolute_path);
+    defer self.allocator.free(real_path);
 
-    std.fs.accessAbsolute(absolute_path, .{}) catch |err| switch (err) {
+    std.fs.accessAbsolute(real_path, .{}) catch |err| switch (err) {
         error.FileNotFound,
         error.NameTooLong,
         error.BadPathName,
@@ -195,7 +302,7 @@ pub fn create_symlink(self: *Fs, path: [:0]const u8, target: [:0]const u8, is_di
             return false;
         };
     };
-    defer if (!std.fs.path.isAbsoluteWindowsZ(path)) self.allocator.free(real_path);
+    defer if (!std.fs.path.isAbsoluteZ(path)) self.allocator.free(real_path);
 
     const real_target = std.fs.cwd().realpathAlloc(self.allocator, target) catch {
         return false;

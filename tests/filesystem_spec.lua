@@ -41,6 +41,36 @@ context("fs", function()
         end
     end)
 
+    test("attributes", function()
+        local attr = config.fs:attributes("tests")
+        las.is_not_nil(attr)
+        ---@cast attr -nil
+
+        las.are_equal(attr.kind, "directory")
+
+        local attr_file = config.fs:attributes(symlink_file_target)
+        las.is_not_nil(attr_file)
+        ---@cast attr_file -nil
+
+        las.are_equal(attr_file.kind, "file")
+    end)
+
+    test("link_attributes", function()
+        if setup.get_os() == "windows" and not config.env.is_root then
+            error("can only be done with elevated privileges on windows")
+        end
+
+        las.is_true(config.fs:create_symlink(symlink_file_path, symlink_file_target, false))
+        las.is_not_nil(lfs.attributes(symlink_file_path))
+
+        local link_attr = config.fs:link_attributes(symlink_file_path)
+        las.is_not_nil(link_attr)
+        ---@cast link_attr -nil
+
+        las.are_equal(link_attr.kind, "file")
+        las.are_equal(lfs.currentdir() .. "/" .. symlink_file_target, link_attr.target)
+    end)
+
     test("chdir", function()
         local start_dir = lfs.currentdir()
         las.is_true(config.fs:chdir("tests/fs_tests"))
@@ -83,6 +113,10 @@ context("fs", function()
     test("create_symlink", function()
         if setup.get_os() == "windows" and not config.env.is_root then
             error("can only be done with elevated privileges on windows")
+        end
+
+        if lfs.attributes(symlink_file_path) then
+            las.is_true(os.remove(symlink_file_path))
         end
 
         las.is_true(config.fs:create_symlink(symlink_file_path, symlink_file_target, false))

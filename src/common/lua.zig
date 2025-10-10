@@ -157,6 +157,10 @@ pub const ThisState = struct {
         };
     }
 
+    pub fn dump(self: *const ThisState) void {
+        Lua.dumpStack(self.lua);
+    }
+
     pub fn is(self: *const ThisState, comptime T: type, index: i32) IndexCovered(bool) {
         return Lua.is(self.lua, T, index);
     }
@@ -346,11 +350,11 @@ pub const Userdata = struct {
                             var duplicate = std.mem.eql(u8, field.luaName(), other_field.luaName());
                             duplicate = duplicate and field == .method and other_field == .method;
                             duplicate = duplicate and
-                                ((field.method.type == .getter and other_field.method.type == .setter) or
+                                !((field.method.type == .getter and other_field.method.type == .setter) or
                                     (field.method.type == .setter and other_field.method.type == .getter));
-
+                            
                             if (duplicate) {
-                                @compileError("found duplicate lua name '" ++ field.luaName ++ "' for '" ++ field.name ++ "' and '" ++ other_field.name ++ "' which are not setter and getter");
+                                @compileError(std.fmt.comptimePrint("found duplicate lua name '{s}' which are not setter and getter (T: {s})", .{ field.luaName(), @typeName(ST) }));
                             }
                         }
 
@@ -474,7 +478,7 @@ pub const Userdata = struct {
 
     pub fn get(lua: *zlua.Lua, comptime T: type, index: i32) !T {
         const abs_index = lua.absIndex(index);
-        
+
         if (!getNameFromLua(lua, abs_index)) {
             switch (@typeInfo(T)) {
                 .@"struct",
@@ -500,7 +504,7 @@ pub const Userdata = struct {
             const userdata = try lua.toUserdata(T, abs_index);
             return userdata.*;
         }
-        
+
         switch (@typeInfo(T)) {
             .pointer => |p| {
                 if (comptime !p.is_const) {
