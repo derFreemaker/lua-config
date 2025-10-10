@@ -81,9 +81,7 @@ function ENV.start_execute(command, args, in_shell)
     if args then
         command_to_execute = command_to_execute .. " "
         for i, arg in ipairs(args) do
-            command_to_execute = command_to_execute
-                .. "\"" .. arg .. "\""
-
+            command_to_execute = command_to_execute .. arg
             if args[i + 1] then
                 command_to_execute = command_to_execute .. " "
             end
@@ -105,7 +103,15 @@ function ENV.execute(command, args, in_shell)
     if not execution then
         error("unable to execute: " .. command .. " " .. table.concat(args or {}, " "))
     end
-    return execution:wait()
+
+    local result = execution:wait()
+    -- if not result.success then
+    --     print(result.exitcode)
+    --     print(result.stdout)
+    --     print(result.stderr)
+    -- end
+
+    return result
 end
 
 --- With 'nil' scope will return all data from user and machine
