@@ -27,9 +27,8 @@ function _path.add_hostname_if_found(path)
     end
 
     local hostname_path = path .. config.env.hostname
-    if config.fs:exists(hostname_path) then
-        --//TODO: maybe check if it's a directory
-        -- and config.fs.attributes(hostname_path).mode == "directory"
+    if lfs.exists(hostname_path)
+        and lfs.attributes(hostname_path).mode == "directory" then
         return hostname_path
     end
 
@@ -41,19 +40,13 @@ end
 ---@param target string
 ---@return boolean success
 function _path.create_symlink(path, target)
-    local command
     if config.env.is_windows then
         if not config.env.is_root then
             return false
         end
-
-        command = string.format('mklink /D "%s" "%s"', path, target)
-    else
-        command = string.format('ln -s "%s" "%s"', path, target)
     end
 
-    local success = config.env.execute(command)
-    return success == true
+    return lfs.link(target, path, true) == true
 end
 
 --- Will fallback to `create_symlink` on none windows machines.
@@ -65,8 +58,7 @@ function _path.create_junction(path, target)
         return _path.create_symlink(path, target)
     end
 
-    local success = config.env.execute(string.format('mklink /J "%s" "%s"', path, target), true)
-    return success
+    return config.env.execute("mklink", {  "/J", path, target }, true).success
 end
 
 --- Will fallback to `create_symlink` on none windows machines.
@@ -78,10 +70,8 @@ function _path.create_shortcut(path, target)
         return _path.create_symlink(path, target)
     end
 
-    local command =
-    '$shell = New-Object -ComObject WScript.Shell;$shortcut = $shell.CreateShortcut("%s");$shortcut.TargetPath = "%s";$shortcut.Save()'
-    local success = config.env.execute(command:format(path, target))
-    return success
+    local command = '$shell = New-Object -ComObject WScript.Shell;$shortcut = $shell.CreateShortcut("%s");$shortcut.TargetPath = "%s";$shortcut.Save()'
+    return config.env.execute(command:format(path, target), nil, true).success
 end
 
 return _path

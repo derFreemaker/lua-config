@@ -122,6 +122,8 @@ function lfs.lock(file_handle, mode, start, lenght) end
 ---@param target string
 ---@param path string
 ---@param symlink boolean | nil
+---@return boolean | nil
+---@return string | nil
 function lfs.link(target, path, symlink) end
 
 --- Creates a new directory. The argument is the name of the new directory.
