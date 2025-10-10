@@ -47,6 +47,14 @@ local ENV = {
     scope = Scope,
 }
 
+function ENV.check_root()
+    if ENV.is_root then
+        return
+    end
+
+    error("elevated privileges needed")
+end
+
 ---@class lua-config.execution
 
 -- When `in_shell` is `true` will use 'powershell' on windows and '/bin/bash' on any other machine.
