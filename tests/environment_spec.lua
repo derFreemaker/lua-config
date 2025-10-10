@@ -1,12 +1,10 @@
 local setup = require("tests.setup_lua-config")
 
----@type lfs
-local lfs = require("lfs")
-
 ---@type luassert
 local las = require("luassert")
 
-local org_getenv = os.getenv
+---@type luasystem
+local system = require("system")
 
 context("environment", function()
     lazy_setup(function()
@@ -37,7 +35,7 @@ context("environment", function()
     test("hostname", function()
         local hostname
         if setup.get_os() == "windows" then
-            hostname = org_getenv("COMPUTERNAME") or ""
+            hostname = system.getenv("COMPUTERNAME") or ""
         else
             local handle = io.popen("cat /etc/hostname", "r")
             if not handle then
@@ -56,12 +54,12 @@ context("environment", function()
     end)
 
     test("get", function()
-        las.are_equal(org_getenv("TERM"), config.env.get("TERM"))
+        las.are_equal(system.getenv("TERM"), config.env.get("TERM"))
     end)
 
     test("set", function()
-        local org_hostname = org_getenv("HOSTNAME")
+        local org_hostname = system.getenv("HOSTNAME")
         las.is_true(config.env.set("HOSTNAME", (org_hostname or "") .. "_test", config.env.scope.process))
-        las.are_not_equal(org_hostname, org_getenv("HOSTNAME"))
+        las.are_not_equal(org_hostname, system.getenv("HOSTNAME"))
     end)
 end)
