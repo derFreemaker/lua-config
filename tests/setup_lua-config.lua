@@ -9,7 +9,7 @@ end
 
 local tests_dir = debug.getinfo(1, "S").source:gsub("\\", "/"):sub(4):match("^(.+)/[^/]+$")
 
----@type LuaFileSystem
+---@type lfs
 local lfs = require("lfs")
 
 ---@type luassert

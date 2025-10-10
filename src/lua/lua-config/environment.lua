@@ -1,4 +1,5 @@
-local org_getenv = os.getenv
+---@type luasystem
+local system = require("system")
 
 local utils = require("lua-config.third-party.utils")
 
@@ -26,7 +27,6 @@ local Scope = {
 ---@type lua-config.lib
 ---@diagnostic disable-next-line: assign-type-mismatch
 local lib = getmetatable(config).__lib
-local env_lib = lib.env
 
 ---@class lua-config.environment
 ---@field package cache table<string, table<lua-config.environment.variable.scope, string>>
@@ -37,6 +37,12 @@ local env_lib = lib.env
 ---
 ---@field hostname string
 local _env = {
+    os = lib.env.os,
+    is_windows = system.windows,
+    is_root = lib.env.is_root,
+
+    hostname = lib.env.hostname,
+
     cache = {},
     scope = Scope,
 }
@@ -106,38 +112,6 @@ function _env.execute(command, direct)
     return _env.end_execute(handle)
 end
 
-if package.config:sub(1, 1) == '\\' then
-    _env.os = "windows"
-else
-    _env.os = "unix"
-end
-_env.is_windows = _env.os == "windows"
-
-if _env.os == "windows" then
-    _env.is_root = _env.execute("net session 2>&1")
-else
-    _env.is_root = _env.execute("sudo -n true 2>&1")
-end
-function _env.check_admin()
-    if _env.is_root then
-        return
-    end
-
-    print("admin privileges needed")
-    os.exit(1)
-end
-
-if _env.is_windows then
-    _env.hostname = org_getenv("COMPUTERNAME") or "unknown"
-else
-    local success, _, hostname = _env.execute("cat /etc/hostname")
-    if not success then
-        error("unable to get hostname!")
-    end
-
-    _env.hostname = hostname:gsub("\n", "")
-end
-
 --- With 'nil' scope will return all data from user and machine
 ---@param name string
 ---@param scope lua-config.environment.variable.scope | nil
@@ -157,7 +131,7 @@ function _env.get(name, scope, ignore_cache)
     ---@type string | nil
     local value
     if scope >= Scope.process then
-        value = env_lib:get(name)
+        value = system.getenv(name)
     end
 
     if scope >= Scope.user then
@@ -199,16 +173,23 @@ function _env.get(name, scope, ignore_cache)
     return value
 end
 
+---@return { [string]: string }
+function _env.getenvs()
+    return system.getenvs()
+end
+
 ---@param name string
 ---@param value string?
 ---@param scope lua-config.environment.variable.scope
 ---@return boolean
 function _env.set(name, value, scope)
-    if scope >= Scope.process then
-        env_lib:set(name, value)
+    if value == "" then
+        value = nil
     end
 
-    if scope >= Scope.user then
+    if scope == Scope.process then
+        return system.setenv(name, value)
+    elseif scope == Scope.user then
         if not _env.is_windows then
             error("not implemented")
         end
@@ -220,14 +201,10 @@ function _env.set(name, value, scope)
             command = set_user_template:format(name, value)
         end
 
-        local success, code, output = _env.execute(command)
-        if not success then
-            print(code, output)
+        if not _env.execute(command) then
             return false
         end
-    end
-
-    if scope >= Scope.machine then
+    elseif scope == Scope.machine then
         if not _env.is_windows then
             error("not implemented")
         end

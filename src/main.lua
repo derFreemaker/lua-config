@@ -49,7 +49,19 @@ local function setup_path(path, package_path, package_cpath)
 end
 setup_path(lua_config_dir, "src/lua/")
 
+---@type boolean, lfs
+local lfs_status, lfs = pcall(require, "lua-config.third-party.lfs")
+if not lfs_status then
+    error("failed to load LuaFileSystem library:\n" .. lfs)
+end
 
+---@type boolean, luasystem
+local system_status, system = pcall(require, "system")
+if not system_status then
+    error("failed to load luasystem library:\n" .. system)
+end
+
+---@type boolean, lua-config.lib
 local lib_status, lib = pcall(require, "lua-config.lib.lua-config")
 if not lib_status then
     error("failed to load lua-config library:\n" .. lib)
@@ -58,8 +70,6 @@ end
 local argparse = require("lua-config.third-party.argparse")
 
 ---@class lua-config
----@field fs lua-config.lib.fs
----
 ---@field root_path string
 ---
 ---@field args_parser argparse.Parser
@@ -68,8 +78,6 @@ local argparse = require("lua-config.third-party.argparse")
 ---@field env lua-config.environment
 ---@field path lua-config.path
 config = {
-    fs = lib.fs,
-
     root_path = parent_dir,
 
     args_parser = argparse("lua-config", "configuration loader in lua"),
@@ -90,16 +98,16 @@ config.env = require("lua-config.environment")
 
 config.path = require("lua-config.path")
 
-local call_dir = config.fs:currentdir()
+local call_dir = lfs.currentdir()
 if not call_dir then
     error("unable to get current dir")
 end
 -- change to parent directory of lua config dir
-config.fs:chdir(config.root_path)
+lfs.chdir(config.root_path)
 setup_path(config.root_path)
 
 local entry_file_path = "init.lua"
-if not config.fs:exists(entry_file_path) then
+if not lfs.exists(entry_file_path) then
     error("no entry file found: " .. entry_file_path)
 end
 
@@ -115,4 +123,4 @@ if not success then
 end
 
 -- change back to original working directory
-config.fs:chdir(call_dir)
+lfs.chdir(call_dir)

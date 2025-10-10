@@ -8,26 +8,17 @@ const Environment = @This();
 pub const __luaMeta = Lua.StructMeta{
     .name = "lua-config.env",
     .fields = &.{
-        Lua.StructMeta.property("is_windows"),
-
         Lua.StructMeta.getter(&getOS, "os"),
         Lua.StructMeta.getter(&checkElevated, "is_root"),
         Lua.StructMeta.getter(&getHostname, "hostname"),
-
-        Lua.StructMeta.method(&get, "get"),
-        Lua.StructMeta.method(&set, "set"),
     },
 };
 
 allocator: std.mem.Allocator,
 
-is_windows: bool,
-
 pub fn init(allocator: std.mem.Allocator) Environment {
     return Environment{
         .allocator = allocator,
-
-        .is_windows = builtin.os.tag == .windows,
     };
 }
 
@@ -44,9 +35,16 @@ fn checkElevated() bool {
     return std.posix.getuid() == 0;
 }
 
-fn getHostname(state: Lua.ThisState) Lua.ReturnStackValues {
+fn getHostname(state: Lua.ThisState, self: *Environment) Lua.ReturnStackValues {
     if (comptime builtin.os.tag == .windows) {
-        return get(state, "COMPUTERNAME");
+        const value = std.process.getEnvVarOwned(self.allocator, "COMPUTERNAME") catch {
+            state.push(null);
+            return .extra;
+        };
+        defer self.allocator.free(value);
+
+        state.push(value);
+        return .extra;
     }
 
     var buf: [std.posix.HOST_NAME_MAX]u8 = undefined;
@@ -56,70 +54,4 @@ fn getHostname(state: Lua.ThisState) Lua.ReturnStackValues {
 
     state.push(name);
     return .extra;
-}
-
-pub fn get(self: *Environment, state: Lua.ThisState, key: [:0]const u8) Lua.ReturnStackValues {
-    const value = std.process.getEnvVarOwned(self.allocator, key) catch {
-        state.push(null);
-        return .extra;
-    };
-    defer self.allocator.free(value);
-
-    state.push(value);
-    return .extra;
-}
-
-extern "kernel32" fn SetEnvironmentVariableW(
-    lpName: [*:0]const u16,
-    lpValue: ?[*]const u16,
-) callconv(.winapi) std.os.windows.Win32Error;
-
-extern fn setenv(name: [*:0]const u8, value: [*:0]const u8, overwrite: i32) callconv(.c) i32;
-extern fn unsetenv(name: [*:0]const u8) callconv(.c) i32;
-
-pub fn set(self: *Environment, name: [:0]const u8, value: ?[:0]const u8) bool {
-    if (comptime builtin.os.tag == .windows) {
-        const name_w = std.unicode.utf8ToUtf16LeAllocZ(self.allocator, name) catch {
-            return false;
-        };
-        defer self.allocator.free(name_w);
-
-        if (value == null) {
-            const result = SetEnvironmentVariableW(name_w.ptr, null);
-            if (result != .SUCCESS) {
-                return false;
-            }
-
-            return true;
-        }
-
-        const value_w = std.unicode.utf8ToUtf16LeAlloc(self.allocator, value.?) catch {
-            return false;
-        };
-        defer self.allocator.free(value_w);
-
-        const result = SetEnvironmentVariableW(name_w.ptr, value_w.ptr);
-        if (result != .SUCCESS) {
-            return false;
-        }
-
-        return true;
-    }
-
-    if (value == null) {
-        const rc = unsetenv(name);
-        if (rc != 0) {
-            return false;
-        }
-
-        return true;
-    }
-
-    const overwrite: i32 = 1;
-    const rc = setenv(name, value.?.ptr, overwrite);
-    if (rc != 0) {
-        return false;
-    }
-
-    return true;
 }

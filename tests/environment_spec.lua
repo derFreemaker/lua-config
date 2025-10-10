@@ -1,6 +1,6 @@
 local setup = require("tests.setup_lua-config")
 
----@type LuaFileSystem
+---@type lfs
 local lfs = require("lfs")
 
 ---@type luassert

@@ -23,6 +23,7 @@ Use `config.parse_args()` to parse the args after configuring with `config.args_
 ## Dependencies
 
 - [lua-filesystem](https://lunarmodules.github.io/luafilesystem)
+- [luasystem](https://lunarmodules.github.io/luasystem)
 - [busted](https://lunarmodules.github.io/busted)
 
 ## Third-Party

@@ -4,7 +4,6 @@ const builtin = @import("builtin");
 const Lua = @import("common/lua.zig");
 
 const Execute = @import("execute.zig");
-const Fs = @import("fs.zig");
 const Environment = @import("environment.zig");
 
 const LuaConfig = @This();
@@ -12,7 +11,6 @@ const LuaConfig = @This();
 pub const __luaMeta = Lua.StructMeta{
     .name = "lua-config",
     .fields = &.{
-        Lua.StructMeta.property("fs"),
         Lua.StructMeta.property("env"),
 
         Lua.StructMeta.method(&execute, "execute"),
@@ -21,14 +19,12 @@ pub const __luaMeta = Lua.StructMeta{
 
 allocator: std.mem.Allocator,
 
-fs: Fs,
 env: Environment,
 
 pub fn init(allocator: std.mem.Allocator) LuaConfig {
     return LuaConfig{
         .allocator = allocator,
 
-        .fs = Fs.init(allocator),
         .env = Environment.init(allocator),
     };
 }
