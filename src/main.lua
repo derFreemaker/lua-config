@@ -90,16 +90,16 @@ config.env = require("lua-config.environment")
 
 config.path = require("lua-config.path")
 
-local call_dir = config.fs.currentdir()
+local call_dir = config.fs:currentdir()
 if not call_dir then
     error("unable to get current dir")
 end
 -- change to parent directory of lua config dir
-config.fs.chdir(config.root_path)
+config.fs:chdir(config.root_path)
 setup_path(config.root_path)
 
 local entry_file_path = "init.lua"
-if not config.fs.exists(entry_file_path) then
+if not config.fs:exists(entry_file_path) then
     error("no entry file found: " .. entry_file_path)
 end
 
@@ -115,4 +115,4 @@ if not success then
 end
 
 -- change back to original working directory
-config.fs.chdir(call_dir)
+config.fs:chdir(call_dir)

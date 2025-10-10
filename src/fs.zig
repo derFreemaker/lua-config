@@ -3,8 +3,6 @@ const zlua = @import("zlua");
 
 const Lua = @import("common/lua.zig");
 
-const allocator = @import("allocator.zig").gpa.allocator();
-
 const Fs = @This();
 
 pub const __luaMeta = Lua.StructMeta{
@@ -20,15 +18,19 @@ pub const __luaMeta = Lua.StructMeta{
     },
 };
 
-pub fn init() Fs {
-    return Fs{};
+allocator: std.mem.Allocator,
+
+pub fn init(allocator: std.mem.Allocator) Fs {
+    return Fs{
+        .allocator = allocator,
+    };
 }
 
-pub fn ch_dir(path: [:0]const u8) bool {
-    const real_path = std.fs.cwd().realpathAlloc(allocator, path) catch {
+pub fn ch_dir(self: *Fs, path: [:0]const u8) bool {
+    const real_path = std.fs.cwd().realpathAlloc(self.allocator, path) catch {
         return false;
     };
-    defer allocator.free(real_path);
+    defer self.allocator.free(real_path);
 
     var new_cwd = std.fs.cwd().openDir(real_path, .{}) catch {
         return false;
@@ -41,15 +43,41 @@ pub fn ch_dir(path: [:0]const u8) bool {
     return true;
 }
 
-pub fn current_dir(state: Lua.ThisState) Lua.ReturnStackValues {
-    const path = std.fs.cwd().realpathAlloc(allocator, ".") catch {
+pub fn current_dir(self: *Fs, state: Lua.ThisState) Lua.ReturnStackValues {
+    const path = std.fs.cwd().realpathAlloc(self.allocator, ".") catch {
         state.push(null);
         return .extra;
     };
-    defer allocator.free(path);
+    defer self.allocator.free(path);
 
     state.push(path);
     return .extra;
+}
+
+pub fn exists(self: *Fs, path: [:0]const u8) bool {
+    const absolute_path = std.fs.cwd().realpathAlloc(self.allocator, path) catch {
+        return false;
+    };
+    defer self.allocator.free(absolute_path);
+
+    std.fs.accessAbsolute(absolute_path, .{}) catch |err| switch (err) {
+        error.FileNotFound,
+        error.NameTooLong,
+        error.BadPathName,
+        error.SymLinkLoop,
+        error.InvalidUtf8,
+        error.InvalidWtf8,
+        error.Unexpected,
+        => {
+            return false;
+        },
+
+        else => {
+            return true;
+        },
+    };
+
+    return true;
 }
 
 pub const DirIterator = struct {
@@ -90,38 +118,12 @@ pub const DirIterator = struct {
     }
 };
 
-pub fn exists(path: [:0]const u8) bool {
-    const absolute_path = std.fs.cwd().realpathAlloc(allocator, path) catch {
-        return false;
-    };
-    defer allocator.free(absolute_path);
-
-    std.fs.accessAbsolute(absolute_path, .{}) catch |err| switch (err) {
-        error.FileNotFound,
-        error.NameTooLong,
-        error.BadPathName,
-        error.SymLinkLoop,
-        error.InvalidUtf8,
-        error.InvalidWtf8,
-        error.Unexpected,
-        => {
-            return false;
-        },
-
-        else => {
-            return true;
-        },
-    };
-
-    return true;
-}
-
-pub fn children(state: Lua.ThisState, path: [:0]const u8) Lua.ReturnStackValues {
-    const real_path = std.fs.cwd().realpathAlloc(allocator, path) catch {
+pub fn children(self: *Fs, state: Lua.ThisState, path: [:0]const u8) Lua.ReturnStackValues {
+    const real_path = std.fs.cwd().realpathAlloc(self.allocator, path) catch {
         state.push(null);
         return .extra;
     };
-    defer allocator.free(real_path);
+    defer self.allocator.free(real_path);
 
     const dir = std.fs.openDirAbsolute(real_path, .{
         .iterate = true,
@@ -135,30 +137,30 @@ pub fn children(state: Lua.ThisState, path: [:0]const u8) Lua.ReturnStackValues 
     state.lua.pushValue(-1);
     state.lua.pushClosure(Lua.wrap(struct {
         pub fn func(s: Lua.ThisState) ?[]const u8 {
-            const self = s.check(*DirIterator, zlua.Lua.upvalueIndex(1)).value;
-            return self.next();
+            const iter = s.check(*DirIterator, zlua.Lua.upvalueIndex(1)).value;
+            return iter.next();
         }
     }.func), 1);
     state.lua.insert(state.lua.absIndex(-2));
     return .extra;
 }
 
-pub fn mkdir(path: [:0]const u8) bool {
+pub fn mkdir(self: *Fs, path: [:0]const u8) bool {
     const real_path = blk: {
         if (std.fs.path.isAbsoluteZ(path)) {
             break :blk path;
         }
 
-        const cwd = std.fs.cwd().realpathAlloc(allocator, ".") catch {
+        const cwd = std.fs.cwd().realpathAlloc(self.allocator, ".") catch {
             return false;
         };
-        defer allocator.free(cwd);
+        defer self.allocator.free(cwd);
 
-        break :blk std.fs.path.join(allocator, &.{ cwd, path }) catch {
+        break :blk std.fs.path.join(self.allocator, &.{ cwd, path }) catch {
             return false;
         };
     };
-    defer if (!std.fs.path.isAbsoluteWindowsZ(path)) allocator.free(real_path);
+    defer if (!std.fs.path.isAbsoluteWindowsZ(path)) self.allocator.free(real_path);
 
     std.fs.makeDirAbsolute(real_path) catch {
         return false;
@@ -166,11 +168,11 @@ pub fn mkdir(path: [:0]const u8) bool {
     return true;
 }
 
-pub fn rmdir(path: [:0]const u8) bool {
-    const real_path = std.fs.cwd().realpathAlloc(allocator, path) catch {
+pub fn rmdir(self: *Fs, path: [:0]const u8) bool {
+    const real_path = std.fs.cwd().realpathAlloc(self.allocator, path) catch {
         return false;
     };
-    defer allocator.free(real_path);
+    defer self.allocator.free(real_path);
 
     std.fs.deleteDirAbsolute(real_path) catch {
         return false;
@@ -178,27 +180,27 @@ pub fn rmdir(path: [:0]const u8) bool {
     return true;
 }
 
-pub fn create_symlink(path: [:0]const u8, target: [:0]const u8, is_directory: bool) bool {
+pub fn create_symlink(self: *Fs, path: [:0]const u8, target: [:0]const u8, is_directory: bool) bool {
     const real_path = blk: {
         if (std.fs.path.isAbsoluteZ(path)) {
             break :blk path;
         }
 
-        const cwd = std.fs.cwd().realpathAlloc(allocator, ".") catch {
+        const cwd = std.fs.cwd().realpathAlloc(self.allocator, ".") catch {
             return false;
         };
-        defer allocator.free(cwd);
+        defer self.allocator.free(cwd);
 
-        break :blk std.fs.path.join(allocator, &.{ cwd, path }) catch {
+        break :blk std.fs.path.join(self.allocator, &.{ cwd, path }) catch {
             return false;
         };
     };
-    defer if (!std.fs.path.isAbsoluteWindowsZ(path)) allocator.free(real_path);
+    defer if (!std.fs.path.isAbsoluteWindowsZ(path)) self.allocator.free(real_path);
 
-    const real_target = std.fs.cwd().realpathAlloc(allocator, target) catch {
+    const real_target = std.fs.cwd().realpathAlloc(self.allocator, target) catch {
         return false;
     };
-    defer allocator.free(real_target);
+    defer self.allocator.free(real_target);
 
     std.fs.symLinkAbsolute(real_target, real_path, .{ .is_directory = is_directory }) catch {
         return false;

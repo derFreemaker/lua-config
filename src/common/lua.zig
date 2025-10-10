@@ -473,21 +473,72 @@ pub const Userdata = struct {
     }
 
     pub fn get(lua: *zlua.Lua, comptime T: type, index: i32) !T {
+        const abs_index = lua.absIndex(index);
+        
+        if (!getNameFromLua(lua, abs_index)) {
+            switch (@typeInfo(T)) {
+                .@"struct",
+                .@"union",
+                => {
+                    return (try lua.toUserdata(T, abs_index)).*;
+                },
+                .pointer => |p| {
+                    if (@typeInfo(p.child) != .@"struct") {
+                        @compileError("can not get a pointer which doesn't directly point at a struct: " ++ @typeName(T) ++ " use 'Lua.get()'");
+                    }
+
+                    return (try lua.toUserdata(T, abs_index)).*;
+                },
+                else => @compileError(std.fmt.comptimePrint("not supported (T: {s})", .{@typeName(T)})),
+            }
+        }
+        const userdata_name = lua.toString(-1) catch unreachable;
+        defer lua.pop(1);
+
+        const struct_name = Lua.getLuaName(T);
+        if (std.mem.eql(u8, struct_name, userdata_name)) {
+            const userdata = try lua.toUserdata(T, abs_index);
+            return userdata.*;
+        }
+        
         switch (@typeInfo(T)) {
+            .pointer => |p| {
+                if (comptime !p.is_const) {
+                    if (comptime struct_name.len > 1) {
+                        if (std.mem.eql(u8, struct_name[1..], userdata_name)) {
+                            return try lua.toUserdata(p.child, abs_index);
+                        }
+                    }
+                } else {
+                    if (comptime struct_name.len > 7) {
+                        if (std.mem.eql(u8, struct_name[7..], userdata_name)) {
+                            return try lua.toUserdata(p.child, abs_index);
+                        }
+
+                        if (std.mem.eql(u8, "*" ++ struct_name[7..], userdata_name)) {
+                            const userdata = try lua.toUserdata(T, abs_index);
+                            return userdata.*;
+                        }
+                    }
+                }
+            },
             .@"struct",
             .@"union",
             => {
-                return (try lua.toUserdata(T, index)).*;
-            },
-            .pointer => |p| {
-                if (@typeInfo(p.child) != .@"struct") {
-                    @compileError("can not get a pointer which doesn't directly point at a struct: " ++ @typeName(T) ++ " use 'Lua.get()'");
+                if (std.mem.eql(u8, "*" ++ struct_name, userdata_name)) {
+                    const userdata = try lua.toUserdata(*T, abs_index);
+                    return userdata.*.*;
                 }
 
-                return (try lua.toUserdata(T, index)).*;
+                if (std.mem.eql(u8, "*const " ++ struct_name, userdata_name)) {
+                    const userdata = try lua.toUserdata(*const T, abs_index);
+                    return userdata.*.*;
+                }
             },
             else => @compileError(std.fmt.comptimePrint("not supported (T: {s})", .{@typeName(T)})),
         }
+
+        return error.UnableToGetUserdata;
     }
 
     pub fn check(lua: *zlua.Lua, comptime T: type, index: i32) T {
@@ -535,7 +586,7 @@ pub const Userdata = struct {
                     const userdata = lua.toUserdata(*T, index) catch unreachable;
                     return userdata.*.*;
                 }
-                
+
                 if (std.mem.eql(u8, "*const " ++ struct_name, userdata_name)) {
                     const userdata = lua.toUserdata(*const T, index) catch unreachable;
                     return userdata.*.*;

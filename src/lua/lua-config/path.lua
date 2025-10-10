@@ -27,7 +27,7 @@ function _path.add_hostname_if_found(path)
     end
 
     local hostname_path = path .. config.env.hostname
-    if config.fs.exists(hostname_path) then
+    if config.fs:exists(hostname_path) then
         --//TODO: maybe check if it's a directory
         -- and config.fs.attributes(hostname_path).mode == "directory"
         return hostname_path

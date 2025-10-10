@@ -43,21 +43,21 @@ context("fs", function()
 
     test("chdir", function()
         local start_dir = lfs.currentdir()
-        las.is_true(config.fs.chdir("tests/fs_tests"))
+        las.is_true(config.fs:chdir("tests/fs_tests"))
         las.is_true(lfs.chdir("../.."))
         las.are_equal(start_dir, lfs.currentdir())
     end)
 
     test("currentdir", function()
-        las.are_equal(lfs.currentdir(), config.fs.currentdir())
+        las.are_equal(lfs.currentdir(), config.fs:currentdir())
     end)
 
     test("exists", function()
-        las.is_true(config.fs.exists("tests"))
+        las.is_true(config.fs:exists("tests"))
     end)
 
     test("dir", function()
-        local config_iter = config.fs.dir(".")
+        local config_iter = config.fs:dir(".")
         for file in lfs.dir(".") do
             if file == "." or file == ".." then
                 -- we skip these lua-config doesn't show these
@@ -71,12 +71,12 @@ context("fs", function()
     end)
 
     test("mkdir", function()
-        las.is_true(config.fs.mkdir(mkdir_path))
+        las.is_true(config.fs:mkdir(mkdir_path))
         las.is_not_nil(lfs.attributes(mkdir_path))
     end)
 
     test("rmdir", function()
-        las.is_true(config.fs.rmdir(rmdir_path))
+        las.is_true(config.fs:rmdir(rmdir_path))
         las.is_nil(lfs.attributes(rmdir_path))
     end)
 
@@ -85,10 +85,10 @@ context("fs", function()
             error("can only be done with elevated privileges on windows")
         end
 
-        las.is_true(config.fs.create_symlink(symlink_file_path, symlink_file_target, false))
+        las.is_true(config.fs:create_symlink(symlink_file_path, symlink_file_target, false))
         las.is_not_nil(lfs.attributes(symlink_file_path))
 
-        las.is_true(config.fs.create_symlink(symlink_dir_path, symlink_dir_target, true))
+        las.is_true(config.fs:create_symlink(symlink_dir_path, symlink_dir_target, true))
         las.is_not_nil(lfs.attributes(symlink_dir_file_check))
     end)
 end)

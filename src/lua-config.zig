@@ -9,8 +9,6 @@ const Environment = @import("environment.zig");
 
 const LuaConfig = @This();
 
-const allocator = @import("allocator.zig").gpa.allocator();
-
 pub const __luaMeta = Lua.StructMeta{
     .name = "lua-config",
     .fields = &.{
@@ -19,37 +17,33 @@ pub const __luaMeta = Lua.StructMeta{
 
         Lua.StructMeta.method(&execute, "execute"),
     },
-    .meta_fields = &.{
-        Lua.StructMeta.method(&deinit, "__gc"),
-    },
 };
+
+allocator: std.mem.Allocator,
 
 fs: Fs,
 env: Environment,
 
-pub fn init() LuaConfig {
+pub fn init(allocator: std.mem.Allocator) LuaConfig {
     return LuaConfig{
-        .fs = Fs.init(),
-        .env = Environment.init(),
+        .allocator = allocator,
+
+        .fs = Fs.init(allocator),
+        .env = Environment.init(allocator),
     };
 }
 
-pub fn deinit(_: *LuaConfig) void {
-    var gpa = @import("allocator.zig").gpa;
-    _ = gpa.deinit();
-}
+pub fn execute(self: *LuaConfig, path: []const u8, tbl: Lua.Ref.Table, state: Lua.ThisState) !Lua.ReturnStackValues {
+    const lua_argv = Lua.Array.check(state.lua, self.allocator, []const []const u8, tbl.ref.index);
+    defer self.allocator.free(lua_argv);
 
-pub fn execute(state: Lua.ThisState, path: []const u8, tbl: Lua.Ref.Table) !Lua.ReturnStackValues {
-    const lua_argv = Lua.Array.check(state.lua, allocator, []const []const u8, tbl.ref.index);
-    defer allocator.free(lua_argv);
-
-    const argv = try allocator.alloc([]const u8, lua_argv.len + 1);
-    argv[0] = try allocator.dupe(u8, path);
+    const argv = try self.allocator.alloc([]const u8, lua_argv.len + 1);
+    argv[0] = try self.allocator.dupe(u8, path);
     for (lua_argv, 1..) |lua_arg, i| {
-        argv[i] = try allocator.dupe(u8, lua_arg);
+        argv[i] = try self.allocator.dupe(u8, lua_arg);
     }
 
-    var instance = Execute.init(allocator, argv);
+    var instance = Execute.init(self.allocator, argv);
     errdefer instance.deinit();
     if (instance.start()) |err_msg| {
         state.push(.{ null, err_msg });

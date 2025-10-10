@@ -6,9 +6,7 @@ local lfs = require("lfs")
 ---@type luassert
 local las = require("luassert")
 
-local org_getenv = function(varname)
-    return os.getenv(varname) or nil
-end
+local org_getenv = os.getenv
 
 context("environment", function()
     lazy_setup(function()
@@ -39,7 +37,7 @@ context("environment", function()
     test("hostname", function()
         local hostname
         if setup.get_os() == "windows" then
-            hostname = org_getenv("COMPUTERNAME")
+            hostname = org_getenv("COMPUTERNAME") or ""
         else
             local handle = io.popen("cat /etc/hostname", "r")
             if not handle then
@@ -62,8 +60,8 @@ context("environment", function()
     end)
 
     test("set", function()
-        local org_hostname = org_getenv("HOSTNAME") or ""
-        las.is_true(config.env.set("HOSTNAME", org_hostname .. "_test", config.env.scope.process))
+        local org_hostname = org_getenv("HOSTNAME")
+        las.is_true(config.env.set("HOSTNAME", (org_hostname or "") .. "_test", config.env.scope.process))
         las.are_not_equal(org_hostname, org_getenv("HOSTNAME"))
     end)
 end)

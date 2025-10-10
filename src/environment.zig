@@ -3,8 +3,6 @@ const builtin = @import("builtin");
 
 const Lua = @import("common/lua.zig");
 
-const allocator = @import("allocator.zig").gpa.allocator();
-
 const Environment = @This();
 
 pub const __luaMeta = Lua.StructMeta{
@@ -21,10 +19,14 @@ pub const __luaMeta = Lua.StructMeta{
     },
 };
 
+allocator: std.mem.Allocator,
+
 is_windows: bool,
 
-pub fn init() Environment {
+pub fn init(allocator: std.mem.Allocator) Environment {
     return Environment{
+        .allocator = allocator,
+
         .is_windows = builtin.os.tag == .windows,
     };
 }
@@ -56,12 +58,12 @@ fn getHostname(state: Lua.ThisState) Lua.ReturnStackValues {
     return .extra;
 }
 
-pub fn get(state: Lua.ThisState, key: [:0]const u8) Lua.ReturnStackValues {
-    const value = std.process.getEnvVarOwned(allocator, key) catch {
-        state.push("");
+pub fn get(self: *Environment, state: Lua.ThisState, key: [:0]const u8) Lua.ReturnStackValues {
+    const value = std.process.getEnvVarOwned(self.allocator, key) catch {
+        state.push(null);
         return .extra;
     };
-    defer allocator.free(value);
+    defer self.allocator.free(value);
 
     state.push(value);
     return .extra;
@@ -75,13 +77,13 @@ extern "kernel32" fn SetEnvironmentVariableW(
 extern fn setenv(name: [*:0]const u8, value: [*:0]const u8, overwrite: i32) callconv(.c) i32;
 extern fn unsetenv(name: [*:0]const u8) callconv(.c) i32;
 
-pub fn set(name: [:0]const u8, value: ?[:0]const u8) bool {
+pub fn set(self: *Environment, name: [:0]const u8, value: ?[:0]const u8) bool {
     if (comptime builtin.os.tag == .windows) {
-        const name_w = std.unicode.utf8ToUtf16LeAllocZ(allocator, name) catch {
+        const name_w = std.unicode.utf8ToUtf16LeAllocZ(self.allocator, name) catch {
             return false;
         };
-        defer allocator.free(name_w);
-        
+        defer self.allocator.free(name_w);
+
         if (value == null) {
             const result = SetEnvironmentVariableW(name_w.ptr, null);
             if (result != .SUCCESS) {
@@ -91,10 +93,10 @@ pub fn set(name: [:0]const u8, value: ?[:0]const u8) bool {
             return true;
         }
 
-        const value_w = std.unicode.utf8ToUtf16LeAlloc(allocator, value.?) catch {
+        const value_w = std.unicode.utf8ToUtf16LeAlloc(self.allocator, value.?) catch {
             return false;
         };
-        defer allocator.free(value_w);
+        defer self.allocator.free(value_w);
 
         const result = SetEnvironmentVariableW(name_w.ptr, value_w.ptr);
         if (result != .SUCCESS) {

@@ -142,7 +142,7 @@ end
 ---@param name string
 ---@param scope lua-config.environment.variable.scope | nil
 ---@param ignore_cache boolean?
----@return string
+---@return string?
 function _env.get(name, scope, ignore_cache)
     scope = scope or Scope.process
     ---@cast scope -string
@@ -157,7 +157,7 @@ function _env.get(name, scope, ignore_cache)
     ---@type string | nil
     local value
     if scope >= Scope.process then
-        value = org_getenv(name)
+        value = env_lib:get(name)
     end
 
     if scope >= Scope.user then
@@ -183,17 +183,18 @@ function _env.get(name, scope, ignore_cache)
         end
         value = result
     end
-    value = value or ""
 
     -- we just remove newlines since there should never be any in an env variable
-    value = value:gsub("\n", "")
+    if value then
+        value = value:gsub("\n", "")
 
-    local variable = _env.cache[name]
-    if not variable then
-        variable = {}
-        _env.cache[name] = variable
+        local variable = _env.cache[name]
+        if not variable then
+            variable = {}
+            _env.cache[name] = variable
+        end
+        variable[scope] = value
     end
-    variable[scope] = value
 
     return value
 end
@@ -204,7 +205,7 @@ end
 ---@return boolean
 function _env.set(name, value, scope)
     if scope >= Scope.process then
-        env_lib.set(name, value)
+        env_lib:set(name, value)
     end
 
     if scope >= Scope.user then

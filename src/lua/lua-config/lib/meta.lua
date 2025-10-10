@@ -21,7 +21,7 @@ end
 ---@param path string
 ---@param args string[]
 ---@return lua-config.lib.execution
-function LuaConfig.execute(path, args)
+function LuaConfig:execute(path, args)
 end
 
 ---@class lua-config.lib.fs
@@ -29,16 +29,16 @@ local Fs = {}
 
 ---@param path string
 ---@return boolean
-function Fs.chdir(path)
+function Fs:chdir(path)
 end
 
 ---@return string?
-function Fs.currentdir()
+function Fs:currentdir()
 end
 
 ---@param path string
 ---@return boolean
-function Fs.exists(path)
+function Fs:exists(path)
 end
 
 ---@class lua-config.lib.fs.dir
@@ -53,24 +53,24 @@ end
 ---@param path string
 ---@return fun() : string?
 ---@return lua-config.lib.fs.dir
-function Fs.dir(path)
+function Fs:dir(path)
 end
 
 ---@param path string
 ---@return boolean
-function Fs.mkdir(path)
+function Fs:mkdir(path)
 end
 
 ---@param path string
 ---@return boolean
-function Fs.rmdir(path)
+function Fs:rmdir(path)
 end
 
 ---@param path string
 ---@param target string
 ---@param is_directory boolean
 ---@return boolean
-function Fs.create_symlink(path, target, is_directory)
+function Fs:create_symlink(path, target, is_directory)
 end
 
 ---@class lua-config.lib.env
@@ -81,12 +81,12 @@ end
 local Env = {}
 
 ---@param name string
----@return string
-function Env.get(name)
+---@return string?
+function Env:get(name)
 end
 
 ---@param name string
 ---@param value string?
 ---@return boolean
-function Env.set(name, value)
+function Env:set(name, value)
 end
