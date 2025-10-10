@@ -12,31 +12,25 @@ pub const __luaMeta = Lua.StructMeta{
     },
 };
 
-var gpa: std.heap.GeneralPurposeAllocator(if (builtin.mode == .Debug) .{
+alloc: if (builtin.mode == .Debug) std.heap.GeneralPurposeAllocator(.{
     .retain_metadata = true,
     .never_unmap = true,
-} else .{}) = .init;
-
-arena: if (builtin.mode == .Debug) void else std.heap.ArenaAllocator,
+}) else std.heap.ArenaAllocator,
 
 pub fn init() Allocator {
     return Allocator{
-        .arena = if (builtin.mode == .Debug) {} else std.heap.ArenaAllocator.init(gpa.allocator()),
+        .alloc = if (builtin.mode == .Debug) .init else std.heap.ArenaAllocator.init(std.heap.page_allocator),
     };
 }
 
 pub fn deinit(self: *Allocator) void {
-    if (comptime builtin.mode != .Debug) {
-        self.arena.deinit();
+    if (comptime builtin.mode == .Debug) {
+        _ = self.alloc.deinit();
+    } else {
+        self.alloc.deinit();
     }
-
-    _ = gpa.deinit();
 }
 
 pub fn allocator(self: *Allocator) std.mem.Allocator {
-    if (comptime builtin.mode == .Debug) {
-        return gpa.allocator();
-    }
-
-    return self.arena.allocator();
+    return self.alloc.allocator();
 }
