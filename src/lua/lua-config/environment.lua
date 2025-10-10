@@ -62,41 +62,34 @@ end
 ---@param command string
 ---@param args string[]?
 ---@param in_shell boolean?
----@return lua-config.lib.execution
+---@return lua-config.lib.execution?
 function ENV.start_execute(command, args, in_shell)
     if not in_shell then
         return lib:execute(command, args or {})
     end
 
     local path, new_args
-    command = command
-        :gsub([[\"]], [[\\"]])
-        :gsub([["]], [[\"]])
     if ENV.is_windows then
         path = "powershell.exe"
-        new_args = { "-NoProfile", "-Command", command .. " " .. table.concat(args or {}, " ") }
+        new_args = { "-NoProfile", "-Command" }
     else
         path = "/bin/bash"
-        new_args = { "--noprofile", "--norc", "-c", command .. " " .. table.concat(args or {}, " ") }
+        new_args = { "--noprofile", "--norc", "-c" }
     end
 
     local command_to_execute = command
-        :gsub([[\"]], [[\\"]])
-        :gsub([["]], [[\"]])
     if args then
         command_to_execute = command_to_execute .. " "
         for i, arg in ipairs(args) do
-            command_to_execute = command_to_execute .. "\""
-            command_to_execute = arg
-                :gsub([[\"]], [[\\"]])
-                :gsub([["]], [[\"]])
-            command_to_execute = command_to_execute .. "\""
+            command_to_execute = command_to_execute
+                .. "\"" .. arg .. "\""
 
             if args[i + 1] then
                 command_to_execute = command_to_execute .. " "
             end
         end
     end
+    table.insert(new_args, command_to_execute)
 
     return lib:execute(path, new_args)
 end
@@ -108,7 +101,11 @@ end
 ---@param in_shell boolean?
 ---@return lua-config.lib.execution.result
 function ENV.execute(command, args, in_shell)
-    return ENV.start_execute(command, args, in_shell):wait()
+    local execution = ENV.start_execute(command, args, in_shell)
+    if not execution then
+        error("unable to execute: " .. command .. " " .. table.concat(args or {}, " "))
+    end
+    return execution:wait()
 end
 
 --- With 'nil' scope will return all data from user and machine
