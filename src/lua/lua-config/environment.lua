@@ -36,7 +36,7 @@ local lib = getmetatable(config).__lib
 ---@field is_root boolean
 ---
 ---@field hostname string
-local _env = {
+local ENV = {
     os = lib.env.os,
     is_windows = system.windows,
     is_root = lib.env.is_root,
@@ -49,67 +49,58 @@ local _env = {
 
 ---@class lua-config.execution
 
--- Will use 'powershell' on windows and '/bin/bash' on any other machine.
--- And will invoke with no profile to provide better consistency
+-- When `in_shell` is `true` will use 'powershell' on windows and '/bin/bash' on any other machine.
+-- With no profile to provide better consistency
 ---@param command string
----@param direct boolean | nil don't launch in 'powershell' or '/bin/bash'
----@return lua-config.execution handle
-function _env.start_execute(command, direct)
-    if direct then
-        local handle, err_msg = io.popen(command)
-        if not handle then
-            error("unable to open process handle:\n" .. err_msg)
-        end
-
-        ---@diagnostic disable-next-line: cast-type-mismatch
-        ---@cast handle lua-config.execution
-        return handle
+---@param args string[]?
+---@param in_shell boolean?
+---@return lua-config.lib.execution
+function ENV.start_execute(command, args, in_shell)
+    if not in_shell then
+        return lib:execute(command, args or {})
     end
 
-    local handle, err_msg
+    local path, new_args
     command = command
         :gsub([[\"]], [[\\"]])
         :gsub([["]], [[\"]])
-    if _env.is_windows then
-        command = "powershell -NoProfile -Command \"" .. command .. "\""
-        handle, err_msg = io.popen(command)
+    if ENV.is_windows then
+        path = "powershell.exe"
+        new_args = { "-NoProfile", "-Command", command .. " " .. table.concat(args or {}, " ") }
     else
-        command = "/bin/bash --noprofile --norc -c \"" .. command .. "\""
-        handle, err_msg = io.popen(command)
+        path = "/bin/bash"
+        new_args = { "--noprofile", "--norc", "-c", command .. " " .. table.concat(args or {}, " ") }
     end
 
-    if not handle then
-        error("unable to open process handle:\n" .. err_msg)
+    local command_to_execute = command
+        :gsub([[\"]], [[\\"]])
+        :gsub([["]], [[\"]])
+    if args then
+        command_to_execute = command_to_execute .. " "
+        for i, arg in ipairs(args) do
+            command_to_execute = command_to_execute .. "\""
+            command_to_execute = arg
+                :gsub([[\"]], [[\\"]])
+                :gsub([["]], [[\"]])
+            command_to_execute = command_to_execute .. "\""
+
+            if args[i + 1] then
+                command_to_execute = command_to_execute .. " "
+            end
+        end
     end
 
-    ---@cast handle lua-config.execution
-    return handle
+    return lib:execute(path, new_args)
 end
 
----@param handle lua-config.execution
----@return boolean success
----@return integer exitcode
----@return string output
-function _env.end_execute(handle)
-    ---@diagnostic disable-next-line: cast-type-mismatch
-    ---@cast handle file*
-
-    handle:seek("set", 0)
-    local result = handle:read("a")
-    local success, _, code = handle:close()
-    return (success == true) or false, code or 1, result
-end
-
--- Will use 'powershell' on windows and '/bin/bash' on any other machine.
--- And will invoke with no profile to provide better consistency
+-- When `in_shell` is `true` will use 'powershell' on windows and '/bin/bash' on any other machine.
+-- With no profile to provide better consistency
 ---@param command string
----@param direct boolean | nil
----@return boolean success
----@return integer exitcode
----@return string output
-function _env.execute(command, direct)
-    local handle = _env.start_execute(command, direct)
-    return _env.end_execute(handle)
+---@param args string[]?
+---@param in_shell boolean?
+---@return lua-config.lib.execution.result
+function ENV.execute(command, args, in_shell)
+    return ENV.start_execute(command, args, in_shell):wait()
 end
 
 --- With 'nil' scope will return all data from user and machine
@@ -117,12 +108,12 @@ end
 ---@param scope lua-config.environment.variable.scope | nil
 ---@param ignore_cache boolean?
 ---@return string?
-function _env.get(name, scope, ignore_cache)
+function ENV.get(name, scope, ignore_cache)
     scope = scope or Scope.process
     ---@cast scope -string
 
     if not ignore_cache then
-        local variable = _env.cache[name]
+        local variable = ENV.cache[name]
         if variable and variable[scope] then
             return variable[scope]
         end
@@ -135,37 +126,37 @@ function _env.get(name, scope, ignore_cache)
     end
 
     if scope >= Scope.user then
-        if not _env.is_windows then
+        if not ENV.is_windows then
             error("not implemented")
         end
 
-        local success, _, result = _env.execute(get_user_template:format(name))
-        if not success then
-            error("unable to get env variable:\n" .. result)
+        local result = ENV.execute(get_user_template:format(name), nil, true)
+        if not result.success then
+            error("unable to get env variable:\n" .. result.stderr)
         end
-        value = result
+        value = result.stdout
     end
 
     if scope >= Scope.machine then
-        if not _env.is_windows then
+        if not ENV.is_windows then
             error("not implemented")
         end
 
-        local success, _, result = _env.execute(get_machine_template:format(name))
-        if not success then
-            error("unable to get env variable:\n" .. result)
+        local result = ENV.execute(get_machine_template:format(name), nil, true)
+        if not result.success then
+            error("unable to get env variable:\n" .. result.stderr)
         end
-        value = result
+        value = result.stdout
     end
 
     -- we just remove newlines since there should never be any in an env variable
     if value then
         value = value:gsub("\n", "")
 
-        local variable = _env.cache[name]
+        local variable = ENV.cache[name]
         if not variable then
             variable = {}
-            _env.cache[name] = variable
+            ENV.cache[name] = variable
         end
         variable[scope] = value
     end
@@ -174,7 +165,7 @@ function _env.get(name, scope, ignore_cache)
 end
 
 ---@return { [string]: string }
-function _env.getenvs()
+function ENV.getenvs()
     return system.getenvs()
 end
 
@@ -182,7 +173,7 @@ end
 ---@param value string?
 ---@param scope lua-config.environment.variable.scope
 ---@return boolean
-function _env.set(name, value, scope)
+function ENV.set(name, value, scope)
     if value == "" then
         value = nil
     end
@@ -190,7 +181,7 @@ function _env.set(name, value, scope)
     if scope == Scope.process then
         return system.setenv(name, value)
     elseif scope == Scope.user then
-        if not _env.is_windows then
+        if not ENV.is_windows then
             error("not implemented")
         end
 
@@ -201,15 +192,15 @@ function _env.set(name, value, scope)
             command = set_user_template:format(name, value)
         end
 
-        if not _env.execute(command) then
+        if not ENV.execute(command, nil, true).success then
             return false
         end
     elseif scope == Scope.machine then
-        if not _env.is_windows then
+        if not ENV.is_windows then
             error("not implemented")
         end
 
-        if not _env.is_root then
+        if not ENV.is_root then
             error("unable to set machine environment variables without elevated privileges")
         end
 
@@ -220,15 +211,15 @@ function _env.set(name, value, scope)
             command = set_machine_template:format(name, value)
         end
 
-        if not _env.execute(command) then
+        if not ENV.execute(command, nil, true).success then
             return false
         end
     end
 
-    local variable = _env.cache[name]
+    local variable = ENV.cache[name]
     if not variable then
         variable = {}
-        _env.cache[name] = variable
+        ENV.cache[name] = variable
     end
     variable[scope] = value;
 
@@ -238,8 +229,8 @@ end
 ---@param name string
 ---@param scope lua-config.environment.variable.scope
 ---@return boolean
-function _env.unset(name, scope)
-    if not _env.set(name, nil, scope) then
+function ENV.unset(name, scope)
+    if not ENV.set(name, nil, scope) then
         return false
     end
 
@@ -252,10 +243,10 @@ end
 ---@param before boolean | nil
 ---@param sep string | nil
 ---@return boolean
-function _env.add(name, value, scope, before, sep)
+function ENV.add(name, value, scope, before, sep)
     sep = sep or ";"
 
-    local items = utils.string.split(_env.get(name, scope) or "", sep)
+    local items = utils.string.split(ENV.get(name, scope) or "", sep)
     for i, item in ipairs(items) do
         if item == value then
             if not before then
@@ -271,7 +262,7 @@ function _env.add(name, value, scope, before, sep)
         table.insert(items, value)
     end
 
-    return _env.set(name, table.concat(items, sep), scope)
+    return ENV.set(name, table.concat(items, sep), scope)
 end
 
 ---@param name string
@@ -279,34 +270,34 @@ end
 ---@param scope lua-config.environment.variable.scope
 ---@param sep string | nil
 ---@return boolean
-function _env.remove(name, value, scope, sep)
+function ENV.remove(name, value, scope, sep)
     sep = sep or ";"
 
-    local items = utils.string.split(_env.get(name, scope) or "")
+    local items = utils.string.split(ENV.get(name, scope) or "")
     for i, item in ipairs(items) do
         if item == value then
             table.remove(items, i)
         end
     end
 
-    return _env.set(name, table.concat(items, sep), scope)
+    return ENV.set(name, table.concat(items, sep), scope)
 end
 
 ---@param name string | nil
-function _env.refresh(name)
+function ENV.refresh(name)
     if name then
-        local variable = _env.cache[name]
+        local variable = ENV.cache[name]
         if not variable then
             return -- we lazy load environment variables
         end
         for scope in pairs(variable) do
-            _env.cache[name][scope] = _env.get(name, scope, true)
+            ENV.cache[name][scope] = ENV.get(name, scope, true)
         end
         return
     end
-    for key in pairs(_env.cache) do
-        for scope in pairs(_env.cache[key]) do
-            _env.cache[key][scope] = _env.get(key, scope, true)
+    for key in pairs(ENV.cache) do
+        for scope in pairs(ENV.cache[key]) do
+            ENV.cache[key][scope] = ENV.get(key, scope, true)
         end
     end
 end
@@ -315,7 +306,7 @@ end
 ---@return string?
 ---@diagnostic disable-next-line: duplicate-set-field
 os.getenv = function(varname)
-    return _env.get(varname)
+    return ENV.get(varname)
 end
 
-return _env
+return ENV
