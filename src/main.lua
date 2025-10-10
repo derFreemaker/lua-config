@@ -67,7 +67,6 @@ local argparse = require("lua-config.third-party.argparse")
 ---
 ---@field env lua-config.environment
 ---@field path lua-config.path
----@field registry lua-config.registry
 config = {
     fs = lib.fs,
 
@@ -90,7 +89,6 @@ end
 config.env = require("lua-config.environment")
 
 config.path = require("lua-config.path")
-config.registry = require("lua-config.registry")
 
 local call_dir = config.fs.currentdir()
 if not call_dir then

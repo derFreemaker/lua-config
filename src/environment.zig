@@ -5,8 +5,6 @@ const Lua = @import("common/lua.zig");
 
 const allocator = @import("allocator.zig").gpa.allocator();
 
-const Reg = if (builtin.os.tag != .windows) void{} else @import("registry.zig");
-
 const Environment = @This();
 
 pub const __luaMeta = Lua.StructMeta{
