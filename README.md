@@ -28,6 +28,7 @@ It is recommended to require `luafilesystem` with `require("lua-config.third-par
 
 ## Dependencies
 
+- [zig](https://ziglang.org/)
 - [lua-filesystem](https://lunarmodules.github.io/luafilesystem)
 - [luasystem](https://lunarmodules.github.io/luasystem)
 - [busted](https://lunarmodules.github.io/busted) (only for testing)
