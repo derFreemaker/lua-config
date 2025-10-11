@@ -50,6 +50,7 @@ setup_path(lua_config_dir, "src/lua/")
 local argparse = require("lua-config.third-party.argparse")
 
 ---@class lua-config
+---@field lua_config_root string
 ---@field root_path string
 ---
 ---@field args_parser argparse.Parser
@@ -58,6 +59,7 @@ local argparse = require("lua-config.third-party.argparse")
 ---@field env lua-config.environment
 ---@field path lua-config.path
 config = {
+    lua_config_root = lua_config_dir,
     root_path = parent_dir,
 
     args_parser = argparse("lua-config", "configuration loader in lua"),

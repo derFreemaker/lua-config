@@ -7,7 +7,7 @@ local function get_os()
     end
 end
 
-local zig_out_dir = config.root_path .. "lua-config/zig-out/"
+local zig_out_dir = config.lua_config_root .. "zig-out/"
 
 local lib_func, msg
 if get_os() == "windows" then
