@@ -13,8 +13,6 @@ lua_config_dir = lua_config_dir:gsub("\\", "/")
 if lua_config_dir:sub(lua_config_dir:len()) ~= "/" then
     lua_config_dir = lua_config_dir .. "/"
 end
----@diagnostic disable-next-line: lowercase-global
-__lua_config_dir = lua_config_dir
 
 ---@param path string
 ---@return string
@@ -49,6 +47,23 @@ local function setup_path(path, package_path, package_cpath)
 end
 setup_path(lua_config_dir, "src/lua/")
 
+local argparse = require("lua-config.third-party.argparse")
+
+---@class lua-config
+---@field root_path string
+---
+---@field args_parser argparse.Parser
+---@field args table
+---
+---@field env lua-config.environment
+---@field path lua-config.path
+config = {
+    root_path = parent_dir,
+
+    args_parser = argparse("lua-config", "configuration loader in lua"),
+    args = args,
+}
+
 ---@type boolean, lfs
 local lfs_status, lfs = pcall(require, "lua-config.third-party.lfs")
 if not lfs_status then
@@ -67,23 +82,8 @@ if not lib_status then
     error("failed to load lua-config library:\n" .. lib)
 end
 
-local argparse = require("lua-config.third-party.argparse")
-
----@class lua-config
----@field root_path string
----
----@field args_parser argparse.Parser
----@field args table
----
----@field env lua-config.environment
----@field path lua-config.path
-config = {
-    root_path = parent_dir,
-
-    args_parser = argparse("lua-config", "configuration loader in lua"),
-    args = args,
-}
 setmetatable(config, { __lib = lib }) -- keep 'lib' alive and accessable
+
 local parsed = false
 function config.parse_args()
     if parsed then
