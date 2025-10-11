@@ -284,9 +284,14 @@ end
 function ENV.remove(name, value, scope, sep)
     sep = sep or ";"
 
-    local items = utils.string.split(ENV.get(name, scope) or "")
+    local env_value = ENV.get(name, scope)
+    if not env_value then
+        return true
+    end
+
+    local items = utils.string.split(env_value, sep, true)
     for i, item in ipairs(items) do
-        if item == value then
+        if item == value or item == "" then
             table.remove(items, i)
         end
     end

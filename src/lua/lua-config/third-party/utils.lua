@@ -115,7 +115,7 @@ __bundler__.__files__["src.utils.string"] = function()
 	        end
 
 	        tbl[i] = foundStr
-	        str = str:sub(foundPos + sepLen + 1, strLen)
+	        str = str:sub(foundPos + sepLen + 1)
 	    end
 	end
 
