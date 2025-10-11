@@ -1,4 +1,5 @@
-local org_getenv = os.getenv
+---@type luasystem
+local system = require("system")
 
 local utils = require("lua-config.third-party.utils")
 
@@ -16,131 +17,114 @@ local set_machine_template =
 local delete_machine_template =
 "$e = [Microsoft.Win32.Registry]::LocalMachine.OpenSubKey(\"SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment\", $true); Write-Output $e.DeleteValue(\"%s\"); $e.Close()"
 
----@alias lua-config.environment.variable.scope
----| "user"
----| "machine"
+---@enum lua-config.environment.variable.scope
+local Scope = {
+    process = 1,
+    user = 2,
+    machine = 3,
+}
+
+---@type lua-config.lib
+---@diagnostic disable-next-line: assign-type-mismatch
+local lib = getmetatable(config).__lib
 
 ---@class lua-config.environment
----@field package cache table<string, table<"all" | lua-config.environment.variable.scope, string>>
+---@field package cache table<string, table<lua-config.environment.variable.scope, string>>
 ---
 ---@field os "windows" | "unix"
 ---@field is_windows boolean
----@field is_admin boolean
+---@field is_root boolean
 ---
 ---@field hostname string
-local _env = {
+local ENV = {
+    os = lib.env.os,
+    is_windows = system.windows,
+    is_root = lib.env.is_root,
+
+    hostname = lib.env.hostname,
+
     cache = {},
+    scope = Scope,
 }
 
----@class lua-config.execution
-
--- Will use 'powershell' on windows and '/bin/bash' on any other machine.
--- And will invoke with no profile to provide better consistency
----@param command string
----@param direct boolean | nil
----@return lua-config.execution handle
-function _env.start_execute(command, direct)
-    if direct then
-        local handle, err_msg = io.popen(command)
-        if not handle then
-            error("unable to open process handle:\n" .. err_msg)
-        end
-
-        ---@diagnostic disable-next-line: cast-type-mismatch
-        ---@cast handle lua-config.execution
-        return handle
-    end
-
-    local handle, err_msg
-    command = command:gsub("\\", "\\\\"):gsub("\"", "\\\"")
-    if _env.is_windows then
-        handle, err_msg = io.popen("powershell -NoProfile -Command \"" .. command .. "\"")
-    else
-        handle, err_msg = io.popen("/bin/bash --noprofile --norc -c \"" .. command .. "\"")
-    end
-
-    if not handle then
-        error("unable to open process handle:\n" .. err_msg)
-    end
-
-    ---@cast handle lua-config.execution
-    return handle
-end
-
----@param handle lua-config.execution
----@return boolean success
----@return integer exitcode
----@return string output
-function _env.end_execute(handle)
-    ---@diagnostic disable-next-line: cast-type-mismatch
-    ---@cast handle file*
-
-    handle:seek("set", 0)
-    local result = handle:read("a")
-    local success, _, code = handle:close()
-    return (success == true) or false, code or 1, result
-end
-
--- Will use 'powershell' on windows and '/bin/bash' on any other machine.
--- And will invoke with no profile to provide better consistency
----@param command string
----@param direct boolean | nil
----@return boolean success
----@return integer exitcode
----@return string output
-function _env.execute(command, direct)
-    local handle = _env.start_execute(command, direct)
-    return _env.end_execute(handle)
-end
-
-if package.config:sub(1, 1) == '\\' then
-    _env.os = "windows"
-else
-    _env.os = "unix"
-end
-_env.is_windows = _env.os == "windows"
-
-if _env.os == "windows" then
-    _env.is_admin = _env.execute("net session 2>&1")
-else
-    _env.is_admin = _env.execute("sudo -n true 2>&1")
-end
-function _env.check_admin()
-    if _env.is_admin then
+function ENV.check_root()
+    if ENV.is_root then
         return
     end
 
-    print("admin privileges needed")
-    os.exit(1)
+    error("elevated privileges needed")
 end
 
-if _env.is_windows then
-    _env.hostname = org_getenv("COMPUTERNAME"):lower()
-else
-    local handle = io.popen("/bin/hostname", "r")
-    if not handle then
-        error("unable to get hostname!")
+---@class lua-config.execution
+
+-- When `in_shell` is `true` will use 'powershell' on windows and '/bin/bash' on any other machine.
+-- With no profile to provide better consistency
+---@param command string
+---@param args string[]?
+---@param in_shell boolean?
+---@return lua-config.lib.execution?
+function ENV.start_execute(command, args, in_shell)
+    if not in_shell then
+        return lib:execute(command, args or {})
     end
 
-    _env.hostname = handle:read("a")
-    handle:close()
+    local path, new_args
+    if ENV.is_windows then
+        path = "powershell.exe"
+        new_args = { "-NoProfile", "-Command" }
+    else
+        path = "/bin/bash"
+        new_args = { "--noprofile", "--norc", "-c" }
+    end
+
+    local command_to_execute = command
+    if args then
+        command_to_execute = command_to_execute .. " "
+        for i, arg in ipairs(args) do
+            command_to_execute = command_to_execute .. arg
+            if args[i + 1] then
+                command_to_execute = command_to_execute .. " "
+            end
+        end
+    end
+    table.insert(new_args, command_to_execute)
+
+    return lib:execute(path, new_args)
+end
+
+-- When `in_shell` is `true` will use 'powershell' on windows and '/bin/bash' on any other machine.
+-- With no profile to provide better consistency
+---@param command string
+---@param args string[]?
+---@param in_shell boolean?
+---@return lua-config.lib.execution.result
+function ENV.execute(command, args, in_shell)
+    local execution = ENV.start_execute(command, args, in_shell)
+    if not execution then
+        error("unable to execute: " .. command .. " " .. table.concat(args or {}, " "))
+    end
+
+    local result = execution:wait()
+    -- if not result.success then
+    --     print(result.exitcode)
+    --     print(result.stdout)
+    --     print(result.stderr)
+    -- end
+
+    return result
 end
 
 --- With 'nil' scope will return all data from user and machine
 ---@param name string
----@param scope lua-config.environment.variable.scope | "all" | nil
+---@param scope lua-config.environment.variable.scope | nil
 ---@param ignore_cache boolean?
----@return string
-function _env.get(name, scope, ignore_cache)
-    if not _env.is_windows then
-        error("'_env.get' is windows only")
-    end
-
-    scope = scope or "all"
+---@return string?
+function ENV.get(name, scope, ignore_cache)
+    scope = scope or Scope.process
     ---@cast scope -string
 
     if not ignore_cache then
-        local variable = _env.cache[name]
+        local variable = ENV.cache[name]
         if variable and variable[scope] then
             return variable[scope]
         end
@@ -148,47 +132,70 @@ function _env.get(name, scope, ignore_cache)
 
     ---@type string | nil
     local value
-    if scope == "all" then
-        value = org_getenv(name)
-    elseif scope == "user" then
-        local success, _, result = _env.execute(get_user_template:format(name))
-        if not success then
-            error("unable to get env variable:\n" .. result)
-        end
-        value = result
-    elseif scope == "machine" then
-        local success, _, result = _env.execute(get_machine_template:format(name))
-        if not success then
-            error("unable to get env variable:\n" .. result)
-        end
-        value = result
-    else
-        error("invalid scope '" .. scope .. "'")
+    if scope >= Scope.process then
+        value = system.getenv(name)
     end
-    value = value or ""
+
+    if scope >= Scope.user then
+        if not ENV.is_windows then
+            error("not implemented")
+        end
+
+        local result = ENV.execute(get_user_template:format(name), nil, true)
+        if not result.success then
+            error("unable to get env variable:\n" .. result.stderr)
+        end
+        value = result.stdout
+    end
+
+    if scope >= Scope.machine then
+        if not ENV.is_windows then
+            error("not implemented")
+        end
+
+        local result = ENV.execute(get_machine_template:format(name), nil, true)
+        if not result.success then
+            error("unable to get env variable:\n" .. result.stderr)
+        end
+        value = result.stdout
+    end
 
     -- we just remove newlines since there should never be any in an env variable
-    value = value:gsub("\n", "")
+    if value then
+        value = value:gsub("\n", "")
 
-    if not variable then
-        variable = {}
-        _env.cache[name] = variable
+        local variable = ENV.cache[name]
+        if not variable then
+            variable = {}
+            ENV.cache[name] = variable
+        end
+        variable[scope] = value
     end
-    variable[scope] = value
 
     return value
+end
+
+---@return { [string]: string }
+function ENV.getenvs()
+    return system.getenvs()
 end
 
 ---@param name string
 ---@param value string?
 ---@param scope lua-config.environment.variable.scope
 ---@return boolean
-function _env.set(name, value, scope)
-    if not _env.is_windows then
-        error("'env.set(...)' is windows only")
+function ENV.set(name, value, scope)
+    if value == "" then
+        value = nil
     end
 
-    if scope == "user" then
+    if scope == Scope.process then
+        return system.setenv(name, value)
+    elseif scope == Scope.user then
+        if not ENV.is_windows then
+            error("not implemented")
+        end
+
         local command
         if value == nil then
             command = delete_user_template:format(name)
@@ -196,13 +203,15 @@ function _env.set(name, value, scope)
             command = set_user_template:format(name, value)
         end
 
-        local success, code, output = _env.execute(command)
-        if not success then
-            print(code, output)
+        if not ENV.execute(command, nil, true).success then
             return false
         end
-    elseif scope == "machine" then
-        if not _env.is_admin then
+    elseif scope == Scope.machine then
+        if not ENV.is_windows then
+            error("not implemented")
+        end
+
+        if not ENV.is_root then
             error("unable to set machine environment variables without elevated privileges")
         end
 
@@ -213,15 +222,15 @@ function _env.set(name, value, scope)
             command = set_machine_template:format(name, value)
         end
 
-        if not _env.execute(command) then
+        if not ENV.execute(command, nil, true).success then
             return false
         end
     end
 
-    local variable = _env.cache[name]
+    local variable = ENV.cache[name]
     if not variable then
         variable = {}
-        _env.cache[name] = variable
+        ENV.cache[name] = variable
     end
     variable[scope] = value;
 
@@ -231,12 +240,8 @@ end
 ---@param name string
 ---@param scope lua-config.environment.variable.scope
 ---@return boolean
-function _env.unset(name, scope)
-    if not _env.is_windows then
-        error("'env.remove(...)' is windows only")
-    end
-
-    if not _env.set(name, nil, scope) then
+function ENV.unset(name, scope)
+    if not ENV.set(name, nil, scope) then
         return false
     end
 
@@ -249,14 +254,10 @@ end
 ---@param before boolean | nil
 ---@param sep string | nil
 ---@return boolean
-function _env.add(name, value, scope, before, sep)
-    if not _env.is_windows then
-        error("'env.add(...)' is windows only")
-    end
+function ENV.add(name, value, scope, before, sep)
     sep = sep or ";"
 
-
-    local items = utils.string.split(_env.get(name, scope) or "", sep)
+    local items = utils.string.split(ENV.get(name, scope) or "", sep)
     for i, item in ipairs(items) do
         if item == value then
             if not before then
@@ -272,7 +273,7 @@ function _env.add(name, value, scope, before, sep)
         table.insert(items, value)
     end
 
-    return _env.set(name, table.concat(items, sep), scope)
+    return ENV.set(name, table.concat(items, sep), scope)
 end
 
 ---@param name string
@@ -280,37 +281,39 @@ end
 ---@param scope lua-config.environment.variable.scope
 ---@param sep string | nil
 ---@return boolean
-function _env.remove(name, value, scope, sep)
-    if not _env.is_windows then
-        error("'env.remove(...)' is windows only")
-    end
+function ENV.remove(name, value, scope, sep)
     sep = sep or ";"
 
-    local items = utils.string.split(_env.get(name, scope) or "")
+    local env_value = ENV.get(name, scope)
+    if not env_value then
+        return true
+    end
+
+    local items = utils.string.split(env_value, sep, true)
     for i, item in ipairs(items) do
-        if item == value then
+        if item == value or item == "" then
             table.remove(items, i)
         end
     end
 
-    return _env.set(name, table.concat(items, sep), scope)
+    return ENV.set(name, table.concat(items, sep), scope)
 end
 
 ---@param name string | nil
-function _env.refresh(name)
+function ENV.refresh(name)
     if name then
-        local variable = _env.cache[name]
+        local variable = ENV.cache[name]
         if not variable then
             return -- we lazy load environment variables
         end
         for scope in pairs(variable) do
-            _env.cache[name][scope] = _env.get(name, scope, true)
+            ENV.cache[name][scope] = ENV.get(name, scope, true)
         end
         return
     end
-    for key in pairs(_env.cache) do
-        for scope in pairs(_env.cache[key]) do
-            _env.cache[key][scope] = _env.get(key, scope, true)
+    for key in pairs(ENV.cache) do
+        for scope in pairs(ENV.cache[key]) do
+            ENV.cache[key][scope] = ENV.get(key, scope, true)
         end
     end
 end
@@ -319,11 +322,7 @@ end
 ---@return string?
 ---@diagnostic disable-next-line: duplicate-set-field
 os.getenv = function(varname)
-    if _env.is_windows then
-        return _env.get(varname)
-    else
-        return org_getenv(varname)
-    end
+    return ENV.get(varname)
 end
 
-return _env
+return ENV

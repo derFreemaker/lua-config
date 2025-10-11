@@ -1,0 +1,8 @@
+# IDE files
+.idea
+.vs
+.vscode
+
+# build files
+.zig-cache
+zig-out

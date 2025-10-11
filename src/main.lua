@@ -47,15 +47,10 @@ local function setup_path(path, package_path, package_cpath)
 end
 setup_path(lua_config_dir, "src/lua/")
 
----@type boolean, lfs
-local lfs_status, lfs = pcall(require, "lua-config.third-party.lfs")
-if not lfs_status then
-    error("failed to load LuaFileSystem library:\n" .. lfs)
-end
-
 local argparse = require("lua-config.third-party.argparse")
 
 ---@class lua-config
+---@field lua_config_root string
 ---@field root_path string
 ---
 ---@field args_parser argparse.Parser
@@ -63,13 +58,34 @@ local argparse = require("lua-config.third-party.argparse")
 ---
 ---@field env lua-config.environment
 ---@field path lua-config.path
----@field registry lua-config.registry
 config = {
+    lua_config_root = lua_config_dir,
     root_path = parent_dir,
 
     args_parser = argparse("lua-config", "configuration loader in lua"),
     args = args,
 }
+
+---@type boolean, lfs
+local lfs_status, lfs = pcall(require, "lua-config.third-party.lfs")
+if not lfs_status then
+    error("failed to load LuaFileSystem library:\n" .. lfs)
+end
+
+---@type boolean, luasystem
+local system_status, system = pcall(require, "system")
+if not system_status then
+    error("failed to load luasystem library:\n" .. system)
+end
+
+---@type boolean, lua-config.lib
+local lib_status, lib = pcall(require, "lua-config.lib.lua-config")
+if not lib_status then
+    error("failed to load lua-config library:\n" .. lib)
+end
+
+setmetatable(config, { __lib = lib }) -- keep 'lib' alive and accessible
+
 local parsed = false
 function config.parse_args()
     if parsed then
@@ -83,7 +99,6 @@ end
 config.env = require("lua-config.environment")
 
 config.path = require("lua-config.path")
-config.registry = require("lua-config.registry")
 
 local call_dir = lfs.currentdir()
 if not call_dir then
@@ -93,7 +108,7 @@ end
 lfs.chdir(config.root_path)
 setup_path(config.root_path)
 
-local entry_file_path = config.root_path .. "init.lua"
+local entry_file_path = "init.lua"
 if not lfs.exists(entry_file_path) then
     error("no entry file found: " .. entry_file_path)
 end

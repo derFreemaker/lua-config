@@ -1,4 +1,4 @@
----@meta
+---@meta _
 
 ---@class lfs
 lfs = {}
@@ -19,6 +19,22 @@ lfs = {}
 ---@field blocks integer block allocated for file (Unix only)
 ---@field blksize integer optimal file system I/O blocksize (Unix only)
 
+---@alias lfs.attribute_name
+---|'dev' -- on Unix systems, this represents the device that the inode resides on. On Windows systems, represents the drive number of the disk containing the file
+---|'ino' -- on Unix systems, this represents the inode number. On Windows systems this has no meaning
+---|'mode' -- string representing the associated protection mode (the values could be file, directory, link, socket, named pipe, char device, block device or other)
+---|'nlink' -- number of hard links to the file
+---|'uid' -- user-id of owner (Unix only, always 0 on Windows)
+---|'gid' -- group-id of owner (Unix only, always 0 on Windows)
+---|'rdev' -- on Unix systems, represents the device type, for special file inodes. On Windows systems represents the same as dev
+---|'access' -- time of last access
+---|'modification' -- time of last data modification
+---|'change' -- time of last file status change
+---|'size' -- file size, in bytes
+---|'permissions' -- file permissions string
+---|'blocks' -- block allocated for file; (Unix only)
+---|'blksize' -- optimal file system I/O blocksize; (Unix only)
+
 --- Returns a table with the file attributes corresponding to filepath (or nil followed by an error message and a system-dependent error code in case of error).
 --- If the second optional argument is given and is a string, then only the value of the named attribute is returned (this use is equivalent to lfs.attributes(filepath)[request_name],
 --- but the table is not created and only one attribute is retrieved from the O.S.). if a table is passed as the second argument,
@@ -38,14 +54,12 @@ function lfs.attributes(path) end
 function lfs.attributes(path, request_name) end
 
 ---@param path string
----@param result_table table
+---@param result_table { [lfs.attribute_name]: any }
 function lfs.attributes(path, result_table) end
-
 
 ---@param path string
 ---@return boolean
 function lfs.exists(path) end
-
 
 --- Changes the current working directory to the given path.
 --- Returns true in case of success or nil plus an error string.
@@ -53,7 +67,6 @@ function lfs.exists(path) end
 ---@return boolean | nil
 ---@return string | nil
 function lfs.chdir(path) end
-
 
 ---@class lfs.lock
 local lock = {}
@@ -76,7 +89,6 @@ function lfs.lock_dir(path, seconds_stale) end
 ---@return string | nil err_msg
 function lfs.currentdir() end
 
-
 ---@class lfs.dir
 local dir = {}
 
@@ -93,7 +105,6 @@ function dir:close() end
 ---@return lfs.dir
 function lfs.dir(path) end
 
-
 --- Locks a file or a part of it. This function works on open files; the file handle should be specified as the first argument.
 --- The string mode could be either r (for a read/shared lock) or w (for a write/exclusive lock).
 --- The optional arguments start and length can be used to specify a starting point and its length; both should be numbers.
@@ -106,14 +117,14 @@ function lfs.dir(path) end
 ---@return string | nil
 function lfs.lock(file_handle, mode, start, lenght) end
 
-
 --- Creates a link. The first argument is the object to link to and the second is the name of the link.
 --- If the optional third argument is true, the link will by a symbolic link (by default, a hard link is created).
 ---@param target string
 ---@param path string
 ---@param symlink boolean | nil
+---@return boolean | nil
+---@return string | nil
 function lfs.link(target, path, symlink) end
-
 
 --- Creates a new directory. The argument is the name of the new directory.
 --- Returns true in case of success or nil, an error message and a system-dependent error code in case of error.
@@ -123,7 +134,6 @@ function lfs.link(target, path, symlink) end
 ---@return integer | nil
 function lfs.mkdir(path) end
 
-
 --- Removes an existing directory. The argument is the name of the directory.
 --- Returns true in case of success or nil, an error message and a system-dependent error code in case of error.
 ---@param path string
@@ -131,7 +141,6 @@ function lfs.mkdir(path) end
 ---@return string | nil
 ---@return integer | nil
 function lfs.rmdir(path) end
-
 
 --- Sets the writing mode for a file. The mode string can be either "binary" or "text".
 --- Returns true followed the previous mode string for the file, or nil followed by an error string in case of errors.
@@ -142,25 +151,30 @@ function lfs.rmdir(path) end
 ---@return string | nil
 function lfs.setmode(file, mode) end
 
+---@class lfs.symlinkattributes : lfs.attributes
+---@field target string the file name that the symlink points to
+
+---@alias lfs.symlinkattribute_name
+---|lfs.attribute_name
+---|"target" the file name that the symlink points to
 
 --- Identical to lfs.attributes except that it obtains information about the link itself (not the file it refers to).
 --- It also adds a target field, containing the file name that the symlink points to. On Windows this function does not yet support links,
 --- and is identical to lfs.attributes.
 ---@param path string
----@return lfs.attributes | nil
+---@return lfs.symlinkattributes | nil
 ---@return string | nil
 ---@return integer | nil
 function lfs.symlinkattributes(path) end
 
 ---@param path string
----@param request_name string
+---@param request_name lfs.symlinkattribute_name
 ---@return any
 function lfs.symlinkattributes(path, request_name) end
 
 ---@param path string
----@param result_table table
+---@param result_table { [lfs.symlinkattribute_name]: any }
 function lfs.symlinkattributes(path, result_table) end
-
 
 --- Set access and modification times of a file. This function is a bind to utime function. The first argument is the filename,
 --- the second argument (atime) is the access time, and the third argument (mtime) is the modification time.
@@ -174,7 +188,6 @@ function lfs.symlinkattributes(path, result_table) end
 ---@return string | nil
 ---@return integer | nil
 function lfs.touch(path, atime, mtime) end
-
 
 --- Unlocks a file or a part of it. This function works on open files; the file handle should be specified as the first argument.
 --- The optional arguments start and length can be used to specify a starting point and its length; both should be numbers.
