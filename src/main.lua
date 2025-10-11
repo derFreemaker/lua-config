@@ -82,7 +82,7 @@ if not lib_status then
     error("failed to load lua-config library:\n" .. lib)
 end
 
-setmetatable(config, { __lib = lib }) -- keep 'lib' alive and accessable
+setmetatable(config, { __lib = lib }) -- keep 'lib' alive and accessible
 
 local parsed = false
 function config.parse_args()

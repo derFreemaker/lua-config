@@ -7,11 +7,12 @@ local function get_os()
     end
 end
 
-local zig_out_dir = config.root_path .. "/zig-out/"
+local zig_out_dir = config.root_path .. "lua-config/zig-out/"
 
 local lib_func, msg
 if get_os() == "windows" then
-    lib_func, msg = package.loadlib((zig_out_dir .. "bin/lua_config.dll"):gsub("/", "\\"), "luaopen_lua_config")
+    local win_path = (zig_out_dir .. "bin/lua_config.dll"):gsub("/", "\\")
+    lib_func, msg = package.loadlib(win_path, "luaopen_lua_config")
 else
     lib_func, msg = package.loadlib(zig_out_dir .. "lib/liblua_config.so", "luaopen_lua_config")
 end
@@ -25,4 +26,4 @@ if not success then
     error("unable to create lua-config object: " .. lib_obj)
 end
 
-return lua_obj
+return lib_obj
