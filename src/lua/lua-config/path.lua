@@ -58,7 +58,7 @@ function _path.create_junction(path, target)
         return _path.create_symlink(path, target)
     end
 
-    return config.env.execute("mklink", {  "/J", path, target }, true).success
+    return config.env.execute("New-Item", { "-ItemType", "Junction", "-Path", "\"" .. path .. "\"", "-Target", "\"" .. target .. "\"" }, true).success
 end
 
 --- Will fallback to `create_symlink` on none windows machines.
