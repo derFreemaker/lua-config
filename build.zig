@@ -7,10 +7,10 @@ pub fn build(b: *std.Build) void {
     const zlua = b.dependency("zlua", .{
         .target = target,
         .optimize = optimize,
-        
+
         .lang = .lua54,
         .shared = false,
-    }).module("zlua");
+    });
 
     const lib_mod = b.createModule(.{
         .target = target,
@@ -19,7 +19,7 @@ pub fn build(b: *std.Build) void {
         .root_source_file = b.path("src/root.zig"),
 
         .imports = &.{
-            .{ .name = "zlua", .module = zlua },
+            .{ .name = "zlua", .module = zlua.module("zlua") },
         },
     });
 
