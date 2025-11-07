@@ -189,9 +189,17 @@ function ENV.set(name, value, scope)
         value = nil
     end
 
-    if scope == Scope.process then
-        return system.setenv(name, value)
-    elseif scope == Scope.user then
+    if scope >= Scope.process then
+        if not system.setenv(name, value) then
+            return false
+        end
+
+        if scope == Scope.process then
+            return true
+        end
+    end
+
+    if scope == Scope.user then
         if not ENV.is_windows then
             error("not implemented")
         end
@@ -316,6 +324,35 @@ function ENV.refresh(name)
             ENV.cache[key][scope] = ENV.get(key, scope, true)
         end
     end
+end
+
+--- only needed on windows since we modify the registry directly
+---@return boolean
+function ENV.broadcast_change_message()
+    if not ENV.is_windows then
+        return true
+    end
+
+    return ENV.execute([[
+    Add-Type @"
+        using System;
+        using System.Runtime.InteropServices;
+        public class Win32 {
+            [DllImport("user32.dll", SetLastError=true, CharSet=CharSet.Auto)]
+            public static extern IntPtr SendMessageTimeout(
+                IntPtr hWnd, uint Msg, UIntPtr wParam, string lParam,
+                uint fuFlags, uint uTimeout, out UIntPtr lpdwResult
+            );
+        }
+    "@
+
+    $HWND_BROADCAST = [IntPtr]0xffff
+    $WM_SETTINGCHANGE = 0x1A
+    $SMTO_ABORTIFHUNG = 0x2
+    $dummy = [UIntPtr]::Zero
+
+    [Win32]::SendMessageTimeout($HWND_BROADCAST, $WM_SETTINGCHANGE, [UIntPtr]::Zero, "Environment", $SMTO_ABORTIFHUNG, 5000, [ref]$dummy)
+    ]], nil, true).success
 end
 
 ---@param varname string
