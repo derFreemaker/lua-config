@@ -38,6 +38,7 @@ pub fn deinit(self: *Execute) void {
 pub fn start(self: *Execute) ?[:0]const u8 {
     self.child.spawn() catch |err| switch (err) {
         //TODO: handle other cases better
+        error.FileNotFound => return "file not found",
         else => return "unable to spawn process",
     };
 
@@ -81,9 +82,7 @@ pub const ExecuteResult = struct {
     }
 };
 
-pub fn wait(self: *Execute) !ExecuteResult {
-    const max_output_bytes = 1024 * 1024; // 1MB
-
+pub fn wait(self: *Execute, max_output_bytes: usize) !ExecuteResult {
     var stdout: std.ArrayListUnmanaged(u8) = .empty;
     defer stdout.deinit(self.child.allocator);
     var stderr: std.ArrayListUnmanaged(u8) = .empty;

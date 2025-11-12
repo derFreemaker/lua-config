@@ -104,7 +104,7 @@ function ENV.execute(command, args, in_shell)
         error("unable to execute: " .. command .. " " .. table.concat(args or {}, " "))
     end
 
-    local result = execution:wait()
+    local result = execution:wait(1024 * 1024)
     -- if not result.success then
     --     print(result.exitcode)
     --     print(result.stdout)
@@ -132,28 +132,28 @@ function ENV.get(name, scope, ignore_cache)
 
     ---@type string | nil
     local value
-    if scope >= Scope.process then
+    if scope == Scope.process then
         value = system.getenv(name)
-    end
-
-    if scope >= Scope.user then
+    elseif scope == Scope.user then
         if not ENV.is_windows then
             error("not implemented")
         end
 
-        local result = ENV.execute(get_user_template:format(name), nil, true)
+        local command = get_user_template:format(name)
+
+        local result = ENV.execute(command, nil, true)
         if not result.success then
             error("unable to get env variable:\n" .. result.stderr)
         end
         value = result.stdout
-    end
-
-    if scope >= Scope.machine then
+    elseif scope == Scope.machine then
         if not ENV.is_windows then
             error("not implemented")
         end
 
-        local result = ENV.execute(get_machine_template:format(name), nil, true)
+        local command = get_machine_template:format(name)
+
+        local result = ENV.execute(command, nil, true)
         if not result.success then
             error("unable to get env variable:\n" .. result.stderr)
         end
@@ -162,7 +162,7 @@ function ENV.get(name, scope, ignore_cache)
 
     -- we just remove newlines since there should never be any in an env variable
     if value then
-        value = value:gsub("\n", "")
+        value = value:gsub("\r", ""):gsub("\n", "")
 
         local variable = ENV.cache[name]
         if not variable then
@@ -189,17 +189,9 @@ function ENV.set(name, value, scope)
         value = nil
     end
 
-    if scope >= Scope.process then
-        if not system.setenv(name, value) then
-            return false
-        end
-
-        if scope == Scope.process then
-            return true
-        end
-    end
-
-    if scope == Scope.user then
+    if scope == Scope.process then
+        return system.setenv(name, value)
+    elseif scope == Scope.user then
         if not ENV.is_windows then
             error("not implemented")
         end
@@ -242,6 +234,19 @@ function ENV.set(name, value, scope)
     end
     variable[scope] = value;
 
+    if scope ~= Scope.process then
+        local complete
+        if scope == Scope.user then
+            local machine_env_var = ENV.get(name, Scope.machine)
+            complete = machine_env_var .. ";" .. (value or "")
+        elseif scope == Scope.machine then
+            local user_env_var = ENV.get(name, Scope.user)
+            complete = (value or "") .. ";" .. user_env_var
+        end
+
+        ENV.set(name, complete, Scope.process)
+    end
+
     return true
 end
 
@@ -265,7 +270,8 @@ end
 function ENV.add(name, value, scope, before, sep)
     sep = sep or ";"
 
-    local items = utils.string.split(ENV.get(name, scope) or "", sep)
+    local env_variable = ENV.get(name, scope) or ""
+    local items = utils.string.split(env_variable, sep)
     for i, item in ipairs(items) do
         if item == value then
             if not before then

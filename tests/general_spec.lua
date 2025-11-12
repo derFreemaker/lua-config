@@ -38,7 +38,7 @@ context("general", function()
         end
         expected = expected .. "\n"
 
-        local result = config.env.start_execute(path, args):wait()
+        local result = config.env.start_execute(path, args):wait(1024 * 1024)
         las.is_true(result.success)
         las.are_equal(expected, result.stdout)
 
