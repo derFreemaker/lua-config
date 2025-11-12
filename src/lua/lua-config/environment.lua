@@ -189,9 +189,17 @@ function ENV.set(name, value, scope)
         value = nil
     end
 
-    if scope == Scope.process then
-        return system.setenv(name, value)
-    elseif scope == Scope.user then
+    if scope >= Scope.process then
+        if not system.setenv(name, value) then
+            return false
+        end
+
+        if scope == Scope.process then
+            return true
+        end
+    end
+
+    if scope == Scope.user then
         if not ENV.is_windows then
             error("not implemented")
         end
