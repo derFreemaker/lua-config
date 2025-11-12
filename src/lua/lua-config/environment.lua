@@ -339,26 +339,11 @@ function ENV.broadcast_change_message()
         return true
     end
 
-    return ENV.execute([[
-    Add-Type @"
-        using System;
-        using System.Runtime.InteropServices;
-        public class Win32 {
-            [DllImport("user32.dll", SetLastError=true, CharSet=CharSet.Auto)]
-            public static extern IntPtr SendMessageTimeout(
-                IntPtr hWnd, uint Msg, UIntPtr wParam, string lParam,
-                uint fuFlags, uint uTimeout, out UIntPtr lpdwResult
-            );
-        }
-    "@
+    local result = ENV.execute(
+        [[Add-Type -TypeDefinition 'using System; using System.Runtime.InteropServices; public class Win32 { [DllImport("user32.dll", SetLastError=true, CharSet=CharSet.Auto)] public static extern IntPtr SendMessageTimeout(IntPtr hWnd, uint Msg, UIntPtr wParam, string lParam, uint fuFlags, uint uTimeout, out UIntPtr lpdwResult); }'; $d=[UIntPtr]::Zero; [Win32]::SendMessageTimeout(0xffff, 0x1A, [UIntPtr]::Zero, 'Environment', 0x2, 5000, [ref]$d)]],
+        nil, true)
 
-    $HWND_BROADCAST = [IntPtr]0xffff
-    $WM_SETTINGCHANGE = 0x1A
-    $SMTO_ABORTIFHUNG = 0x2
-    $dummy = [UIntPtr]::Zero
-
-    [Win32]::SendMessageTimeout($HWND_BROADCAST, $WM_SETTINGCHANGE, [UIntPtr]::Zero, "Environment", $SMTO_ABORTIFHUNG, 5000, [ref]$dummy)
-    ]], nil, true).success
+    return result.success
 end
 
 ---@param varname string
