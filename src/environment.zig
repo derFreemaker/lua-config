@@ -30,9 +30,9 @@ extern "shell32" fn IsUserAnAdmin() callconv(.winapi) std.os.windows.BOOL;
 fn checkElevated() bool {
     if (comptime builtin.os.tag == .windows) {
         return IsUserAnAdmin() != 0;
+    } else {
+        return std.posix.getuid() == 0;
     }
-
-    return std.posix.getuid() == 0;
 }
 
 fn getHostname(state: Lua.ThisState, self: *Environment) Lua.ReturnStackValues {
@@ -45,13 +45,13 @@ fn getHostname(state: Lua.ThisState, self: *Environment) Lua.ReturnStackValues {
 
         state.push(value);
         return .extra;
+    } else {
+        var buf: [std.posix.HOST_NAME_MAX]u8 = undefined;
+        const name = std.posix.gethostname(&buf) catch {
+            state.lua.raiseErrorStr("unable to get hostname", .{});
+        };
+
+        state.push(name);
+        return .extra;
     }
-
-    var buf: [std.posix.HOST_NAME_MAX]u8 = undefined;
-    const name = std.posix.gethostname(&buf) catch {
-        state.lua.raiseErrorStr("unable to get hostname", .{});
-    };
-
-    state.push(name);
-    return .extra;
 }

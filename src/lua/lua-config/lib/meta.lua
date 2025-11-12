@@ -13,8 +13,9 @@ local Execution = {}
 ---@field stdout string
 ---@field stderr string
 
+---@param max_output_bytes integer
 ---@return lua-config.lib.execution.result
-function Execution:wait()
+function Execution:wait(max_output_bytes)
 end
 
 ---@param path string
