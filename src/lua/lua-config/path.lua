@@ -58,7 +58,25 @@ function _path.create_junction(path, target)
         return _path.create_symlink(path, target)
     end
 
-    return config.env.execute("New-Item", { "-ItemType", "Junction", "-Path", "\"" .. path .. "\"", "-Target", "\"" .. target .. "\"" }, true).success
+    local result = config.env.execute("New-Item", {
+        "-ItemType", "Junction",
+        "-Path", "\"" .. path .. "\"",
+        "-Target", "\"" .. target .. "\"",
+    }, true)
+    return result.success
+end
+
+--- returns false on none windows machines.
+function _path.delete_junction(path)
+    if not config.env.is_windows then
+        return false
+    end
+
+    local result = config.env.execute("$junction = Get-Item", {
+        "-Path", path,
+        ";$junction.Delete()",
+    }, true)
+    return result.success
 end
 
 --- Will fallback to `create_symlink` on none windows machines.
@@ -70,7 +88,8 @@ function _path.create_shortcut(path, target)
         return _path.create_symlink(path, target)
     end
 
-    local command = '$shell = New-Object -ComObject WScript.Shell;$shortcut = $shell.CreateShortcut("%s");$shortcut.TargetPath = "%s";$shortcut.Save()'
+    local command =
+    '$shell = New-Object -ComObject WScript.Shell;$shortcut = $shell.CreateShortcut("%s");$shortcut.TargetPath = "%s";$shortcut.Save()'
     return config.env.execute(command:format(path, target), nil, true).success
 end
 
