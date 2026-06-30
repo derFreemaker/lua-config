@@ -62,7 +62,7 @@ end
 ---@param command string
 ---@param args string[]?
 ---@param in_shell boolean?
----@return lua-config.lib.execution?
+---@return lua-config.lib.execution?, string err_msg
 function ENV.start_execute(command, args, in_shell)
     if not in_shell then
         return lib:execute(command, args or {})

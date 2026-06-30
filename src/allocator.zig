@@ -12,7 +12,7 @@ pub const __luaMeta = Lua.StructMeta{
     },
 };
 
-alloc: if (builtin.mode == .Debug) std.heap.GeneralPurposeAllocator(.{
+alloc: if (builtin.mode == .Debug) std.heap.DebugAllocator(.{
     .retain_metadata = true,
     .never_unmap = true,
 }) else std.heap.ArenaAllocator,

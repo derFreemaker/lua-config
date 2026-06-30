@@ -6,3 +6,4 @@
 # build files
 .zig-cache
 zig-out
+zig-pkg

@@ -14,35 +14,30 @@ pub const __luaMeta = Lua.StructMeta{
 
 const Execute = @This();
 
+allocator: std.mem.Allocator,
+io: std.Io,
+
 child: std.process.Child,
 
-pub fn init(allocator: std.mem.Allocator, argv: [][]const u8) Execute {
-    var child = std.process.Child.init(argv, allocator);
-    child.stdout_behavior = .Pipe;
-    child.stderr_behavior = .Pipe;
+pub fn init(allocator: std.mem.Allocator, io: std.Io, argv: []const []const u8) std.process.SpawnError!Execute {
+    const child = try std.process.spawn(io, .{
+        .argv = argv,
+
+        .stdout = .pipe,
+        .stderr = .pipe,
+    });
+    errdefer child.kill(io);
 
     return Execute{
+        .allocator = allocator,
+        .io = io,
+
         .child = child,
     };
 }
 
 pub fn deinit(self: *Execute) void {
-    _ = self.child.kill() catch {};
-
-    for (self.child.argv) |arg| {
-        self.child.allocator.free(arg);
-    }
-    self.child.allocator.free(self.child.argv);
-}
-
-pub fn start(self: *Execute) ?[:0]const u8 {
-    self.child.spawn() catch |err| switch (err) {
-        //TODO: handle other cases better
-        error.FileNotFound => return "file not found",
-        else => return "unable to spawn process",
-    };
-
-    return null;
+    self.child.kill(self.io);
 }
 
 pub const ExecuteResult = struct {
@@ -82,29 +77,43 @@ pub const ExecuteResult = struct {
     }
 };
 
-pub fn wait(self: *Execute, max_output_bytes: usize) !ExecuteResult {
-    var stdout: std.ArrayListUnmanaged(u8) = .empty;
-    defer stdout.deinit(self.child.allocator);
-    var stderr: std.ArrayListUnmanaged(u8) = .empty;
-    defer stderr.deinit(self.child.allocator);
+pub fn wait(self: *Execute, max_output_bytes: usize, state: Lua.ThisState) !ExecuteResult {
+    var stdout_buf = try self.allocator.alloc(u8, max_output_bytes);
+    defer self.allocator.free(stdout_buf);
+    var stderr_buf = try self.allocator.alloc(u8, max_output_bytes);
+    defer self.allocator.free(stderr_buf);
 
-    errdefer {
-        _ = self.child.kill() catch {};
-    }
-    try self.child.collectOutput(self.child.allocator, &stdout, &stderr, max_output_bytes);
+    var stdout_reader_buf: [128]u8 = undefined;
+    var stdout_reader = self.child.stdout.?.reader(self.io, &stdout_reader_buf);
+    const stdout = &stdout_reader.interface;
+    const stdout_str = stdout_buf[0 .. stdout.readSliceShort(stdout_buf) catch {
+        state.lua.raiseErrorStr("unable to read stdout", .{});
+    }];
 
-    const term = try self.child.wait();
+    var stderr_reader_buf: [128]u8 = undefined;
+    var stderr_reader = self.child.stderr.?.reader(self.io, &stderr_reader_buf);
+    const stderr = &stderr_reader.interface;
+    const stderr_str = stderr_buf[0 .. stderr.readSliceShort(stderr_buf) catch {
+        state.lua.raiseErrorStr("unable to read stderr", .{});
+    }];
+
+    const term = try self.child.wait(self.io);
+
+    const stdout_finial = try self.allocator.dupe(u8, stdout_str);
+    errdefer self.allocator.free(stdout_finial);
+    const stderr_finial = try self.allocator.dupe(u8, stderr_str);
+    errdefer self.allocator.free(stderr_finial);
 
     return ExecuteResult.init(
-        self.child.allocator,
-        term == .Exited and term.Exited == 0,
+        self.allocator,
+        term == .exited and term.exited == 0,
         switch (term) {
-            .Exited => |e| e,
-            .Signal => |s| s,
-            .Stopped => |s| s,
-            .Unknown => |u| u,
+            .exited => |e| e,
+            .signal => |s| @intFromEnum(s),
+            .stopped => |s| @intFromEnum(s),
+            .unknown => |u| u,
         },
-        try stdout.toOwnedSlice(self.child.allocator),
-        try stderr.toOwnedSlice(self.child.allocator),
+        stdout_finial,
+        stderr_finial,
     );
 }
