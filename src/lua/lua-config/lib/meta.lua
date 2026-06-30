@@ -20,7 +20,7 @@ end
 
 ---@param path string
 ---@param args string[]
----@return lua-config.lib.execution
+---@return lua-config.lib.execution?, string err_msg
 function LuaConfig:execute(path, args)
 end
 

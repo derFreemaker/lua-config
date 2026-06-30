@@ -15,10 +15,12 @@ pub const __luaMeta = Lua.StructMeta{
 };
 
 allocator: std.mem.Allocator,
+env_map: *std.process.Environ.Map,
 
-pub fn init(allocator: std.mem.Allocator) Environment {
+pub fn init(allocator: std.mem.Allocator, env_map: *std.process.Environ.Map) Environment {
     return Environment{
         .allocator = allocator,
+        .env_map = env_map,
     };
 }
 
@@ -28,22 +30,20 @@ fn getOS() [:0]const u8 {
 
 extern "shell32" fn IsUserAnAdmin() callconv(.winapi) std.os.windows.BOOL;
 fn checkElevated() bool {
-    if (comptime builtin.os.tag == .windows) {
-        return IsUserAnAdmin() != 0;
-    } else {
-        return std.posix.getuid() == 0;
-    }
+    return switch (comptime builtin.os.tag) {
+        .windows => IsUserAnAdmin() != .FALSE,
+        .linux, .macos => std.os.linux.getuid() == 0,
+        else => false,
+    };
 }
 
 fn getHostname(state: Lua.ThisState, self: *Environment) Lua.ReturnStackValues {
     if (comptime builtin.os.tag == .windows) {
-        const value = std.process.getEnvVarOwned(self.allocator, "COMPUTERNAME") catch {
-            state.push(null);
-            return .extra;
+        const name = self.env_map.get("COMPUTERNAME") orelse {
+            state.lua.raiseErrorStr("hostname (aka 'COMPUTERNAME') not found in environment varaibles", .{});
         };
-        defer self.allocator.free(value);
 
-        state.push(value);
+        state.push(name);
         return .extra;
     } else {
         var buf: [std.posix.HOST_NAME_MAX]u8 = undefined;

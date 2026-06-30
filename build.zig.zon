@@ -5,8 +5,8 @@
     .minimum_zig_version = "0.14.1",
     .dependencies = .{
         .zlua = .{
-            .url = "git+https://github.com/natecraddock/ziglua#39f8df588d0864070deffa308ef575bf492777a0",
-            .hash = "zlua-0.1.0-hGRpC6E9BQDBGKPqzmCRsI6Xd8jH9KohccmX69-L6HyS",
+            .url = "git+https://github.com/natecraddock/ziglua#9a520d0bbaac378d2e926c76edb584da104941dc",
+            .hash = "zlua-0.1.0-hGRpCwGVBQCZRZ2QEHLENoYjRj-nNjD500_BmMsXeqT4",
         },
     },
     .paths = .{

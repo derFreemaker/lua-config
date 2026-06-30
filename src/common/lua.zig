@@ -1,9 +1,9 @@
 const std = @import("std");
 const builtin = @import("builtin");
+
 const zlua = @import("zlua");
 
 const IndexCovered = @import("lua_index_covered.zig").IndexCovered;
-
 pub const Ref = @import("lua_ref.zig");
 pub const StructMeta = @import("lua_struct_meta.zig");
 
@@ -352,7 +352,7 @@ pub const Userdata = struct {
                             duplicate = duplicate and
                                 !((field.method.type == .getter and other_field.method.type == .setter) or
                                     (field.method.type == .setter and other_field.method.type == .getter));
-                            
+
                             if (duplicate) {
                                 @compileError(std.fmt.comptimePrint("found duplicate lua name '{s}' which are not setter and getter (T: {s})", .{ field.luaName(), @typeName(ST) }));
                             }
